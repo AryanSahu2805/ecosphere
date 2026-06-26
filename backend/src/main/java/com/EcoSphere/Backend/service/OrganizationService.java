@@ -5,6 +5,7 @@ import com.EcoSphere.Backend.dto.OrganizationResponseDTO;
 import com.EcoSphere.Backend.exception.DuplicateResourceException;
 import com.EcoSphere.Backend.exception.ResourceNotFoundException;
 import com.EcoSphere.Backend.model.Organization;
+import com.EcoSphere.Backend.repository.LocationRepository;
 import com.EcoSphere.Backend.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.util.List;
 public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
+    private final LocationRepository locationRepository;
 
     public OrganizationResponseDTO createOrganization(CreateOrganizationRequestDTO request) {
         if (organizationRepository.existsByName(request.getName())) {
@@ -65,6 +67,11 @@ public class OrganizationService {
     public void deleteOrganization(Long id) {
         Organization organization = organizationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found with id: " + id));
+
+        if (locationRepository.existsByOrganizationId(id)) {
+            throw new DuplicateResourceException(
+                    "Cannot delete organization: locations still exist. Delete all locations first.");
+        }
 
         organizationRepository.delete(organization);
     }
