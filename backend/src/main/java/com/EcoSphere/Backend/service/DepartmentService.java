@@ -6,7 +6,10 @@ import com.EcoSphere.Backend.exception.DuplicateResourceException;
 import com.EcoSphere.Backend.exception.ResourceNotFoundException;
 import com.EcoSphere.Backend.model.Department;
 import com.EcoSphere.Backend.repository.DepartmentRepository;
+import com.EcoSphere.Backend.repository.EnergyRecordRepository;
 import com.EcoSphere.Backend.repository.LocationRepository;
+import com.EcoSphere.Backend.repository.ServerUsageRecordRepository;
+import com.EcoSphere.Backend.repository.TravelRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +21,9 @@ public class DepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final LocationRepository locationRepository;
+    private final EnergyRecordRepository energyRecordRepository;
+    private final TravelRecordRepository travelRecordRepository;
+    private final ServerUsageRecordRepository serverUsageRecordRepository;
 
     public DepartmentResponseDTO createDepartment(CreateDepartmentRequestDTO request) {
         if (!locationRepository.existsById(request.getLocationId())) {
@@ -83,6 +89,14 @@ public class DepartmentService {
     public void deleteDepartment(Long id) {
         Department department = departmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
+
+        if (energyRecordRepository.existsByDepartmentId(id) ||
+                travelRecordRepository.existsByDepartmentId(id) ||
+                serverUsageRecordRepository.existsByDepartmentId(id)) {
+            throw new DuplicateResourceException(
+                    "Cannot delete department: carbon records exist. " +
+                            "Remove all records first.");
+        }
 
         departmentRepository.delete(department);
     }
