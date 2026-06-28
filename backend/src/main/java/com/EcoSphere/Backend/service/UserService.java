@@ -2,6 +2,7 @@ package com.EcoSphere.Backend.service;
 
 import com.EcoSphere.Backend.dto.RegisterRequestDTO;
 import com.EcoSphere.Backend.dto.UserResponseDTO;
+import com.EcoSphere.Backend.exception.DuplicateResourceException;
 import com.EcoSphere.Backend.model.Role;
 import com.EcoSphere.Backend.model.User;
 import com.EcoSphere.Backend.repository.UserRepository;
@@ -18,7 +19,7 @@ public class UserService {
 
     public UserResponseDTO registerUser(RegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already in use: " + request.getEmail());
+            throw new DuplicateResourceException("Email already in use: " + request.getEmail());
         }
 
         Role role = request.getRole() != null ? request.getRole() : Role.SUSTAINABILITY_MANAGER;
