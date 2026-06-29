@@ -7,6 +7,7 @@ import com.EcoSphere.Backend.dto.UserResponseDTO;
 import com.EcoSphere.Backend.model.User;
 import com.EcoSphere.Backend.repository.UserRepository;
 import com.EcoSphere.Backend.security.JwtUtil;
+import com.EcoSphere.Backend.service.AuditLogService;
 import com.EcoSphere.Backend.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
@@ -57,6 +59,13 @@ public class AuthController {
                 .email(user.getEmail())
                 .role(user.getRole().name())
                 .build();
+
+        auditLogService.log(
+                "LOGIN",
+                "USER",
+                user.getId(),
+                "User logged in: " + user.getEmail()
+        );
 
         return ResponseEntity.ok(response);
     }
