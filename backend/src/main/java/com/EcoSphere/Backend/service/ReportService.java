@@ -84,8 +84,8 @@ public class ReportService {
                 printer.printRecord("Energy Records", summary.getEnergyRecordCount());
                 printer.printRecord("Travel Records", summary.getTravelRecordCount());
                 printer.printRecord("Server Records", summary.getServerRecordCount());
+                writer.flush();
             }
-            writer.flush();
         } catch (IOException e) {
             throw new RuntimeException("Failed to generate CSV report", e);
         }
@@ -129,8 +129,8 @@ public class ReportService {
                             record.getRecordedDate(),
                             record.getNotes());
                 }
+                writer.flush();
             }
-            writer.flush();
         } catch (IOException e) {
             throw new RuntimeException("Failed to generate CSV report", e);
         }

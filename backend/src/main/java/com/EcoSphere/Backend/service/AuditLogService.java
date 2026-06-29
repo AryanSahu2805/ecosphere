@@ -27,7 +27,9 @@ public class AuditLogService {
         String userEmail;
         Long userId = null;
 
-        if (auth == null || !auth.isAuthenticated()) {
+        if (auth == null
+                || !auth.isAuthenticated()
+                || auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
             userEmail = "SYSTEM";
         } else {
             userEmail = auth.getName();
