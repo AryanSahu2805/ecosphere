@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -22,6 +21,7 @@ public class EnergyRecordService {
     private final EnergyRecordRepository energyRecordRepository;
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
+    private final EmissionCalculationService emissionCalculationService;
 
     public EnergyRecordResponseDTO createEnergyRecord(CreateEnergyRecordRequestDTO request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -37,7 +37,8 @@ public class EnergyRecordService {
                 .userId(user.getId())
                 .consumptionKwh(request.getConsumptionKwh())
                 .energyType(request.getEnergyType())
-                .co2Emission(BigDecimal.ZERO)
+                .co2Emission(emissionCalculationService
+                        .calculateEnergyEmission(request.getConsumptionKwh(), request.getEnergyType()))
                 .recordedDate(request.getRecordedDate())
                 .notes(request.getNotes())
                 .build();
@@ -78,7 +79,8 @@ public class EnergyRecordService {
         record.setEnergyType(request.getEnergyType());
         record.setRecordedDate(request.getRecordedDate());
         record.setNotes(request.getNotes());
-        record.setCo2Emission(BigDecimal.ZERO);
+        record.setCo2Emission(emissionCalculationService
+                .calculateEnergyEmission(record.getConsumptionKwh(), record.getEnergyType()));
 
         EnergyRecord saved = energyRecordRepository.save(record);
 

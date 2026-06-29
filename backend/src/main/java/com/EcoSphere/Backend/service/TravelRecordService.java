@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -22,6 +21,7 @@ public class TravelRecordService {
     private final TravelRecordRepository travelRecordRepository;
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
+    private final EmissionCalculationService emissionCalculationService;
 
     public TravelRecordResponseDTO createTravelRecord(CreateTravelRecordRequestDTO request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -37,7 +37,8 @@ public class TravelRecordService {
                 .userId(user.getId())
                 .distanceKm(request.getDistanceKm())
                 .transportMode(request.getTransportMode())
-                .co2Emission(BigDecimal.ZERO)
+                .co2Emission(emissionCalculationService
+                        .calculateTravelEmission(request.getDistanceKm(), request.getTransportMode()))
                 .recordedDate(request.getRecordedDate())
                 .notes(request.getNotes())
                 .build();
@@ -78,7 +79,8 @@ public class TravelRecordService {
         record.setTransportMode(request.getTransportMode());
         record.setRecordedDate(request.getRecordedDate());
         record.setNotes(request.getNotes());
-        record.setCo2Emission(BigDecimal.ZERO);
+        record.setCo2Emission(emissionCalculationService
+                .calculateTravelEmission(record.getDistanceKm(), record.getTransportMode()));
 
         TravelRecord saved = travelRecordRepository.save(record);
 

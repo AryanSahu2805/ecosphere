@@ -12,4 +12,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     boolean existsByLocationId(Long locationId);
 
     boolean existsByNameAndLocationId(String name, Long locationId);
+
+    List<Long> findIdsByLocationIdIn(List<Long> locationIds);
 }

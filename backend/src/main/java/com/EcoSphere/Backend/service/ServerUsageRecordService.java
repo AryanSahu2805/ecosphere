@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -22,6 +21,7 @@ public class ServerUsageRecordService {
     private final ServerUsageRecordRepository serverUsageRecordRepository;
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
+    private final EmissionCalculationService emissionCalculationService;
 
     public ServerUsageRecordResponseDTO createServerUsageRecord(CreateServerUsageRecordRequestDTO request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -37,7 +37,8 @@ public class ServerUsageRecordService {
                 .userId(user.getId())
                 .usageHours(request.getUsageHours())
                 .serverType(request.getServerType())
-                .co2Emission(BigDecimal.ZERO)
+                .co2Emission(emissionCalculationService
+                        .calculateServerEmission(request.getUsageHours(), request.getServerType()))
                 .recordedDate(request.getRecordedDate())
                 .notes(request.getNotes())
                 .build();
@@ -78,7 +79,8 @@ public class ServerUsageRecordService {
         record.setServerType(request.getServerType());
         record.setRecordedDate(request.getRecordedDate());
         record.setNotes(request.getNotes());
-        record.setCo2Emission(BigDecimal.ZERO);
+        record.setCo2Emission(emissionCalculationService
+                .calculateServerEmission(record.getUsageHours(), record.getServerType()));
 
         ServerUsageRecord saved = serverUsageRecordRepository.save(record);
 
