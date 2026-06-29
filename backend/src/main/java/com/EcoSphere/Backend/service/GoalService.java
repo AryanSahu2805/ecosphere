@@ -39,6 +39,7 @@ public class GoalService {
     private final TravelRecordRepository travelRecordRepository;
     private final ServerUsageRecordRepository serverUsageRecordRepository;
     private final UserRepository userRepository;
+    private final AlertService alertService;
 
     public GoalResponseDTO createGoal(CreateGoalRequestDTO request) {
         if (!organizationRepository.existsById(request.getOrganizationId())) {
@@ -101,7 +102,7 @@ public class GoalService {
         BigDecimal currentValue = getCurrentEmissions(
                 goal.getOrganizationId(),
                 goal.getTargetMetric(),
-                goal.getCreatedAt().toLocalDate(),
+                LocalDate.of(2020, 1, 1),
                 LocalDate.now());
 
         BigDecimal reductionAchieved = goal.getBaselineValue().subtract(currentValue);
@@ -139,6 +140,14 @@ public class GoalService {
             } else if (missed) {
                 goal.setStatus("MISSED");
                 sustainabilityGoalRepository.save(goal);
+                alertService.createAlertIfNotExists(
+                        goal.getOrganizationId(),
+                        goal.getId(),
+                        "GOAL_MISSED",
+                        "Goal deadline passed without reaching target. "
+                                + "Current: " + currentValue
+                                + " kg CO2, Target: " + goal.getTargetValue() + " kg CO2.",
+                        "HIGH");
             }
         }
 
