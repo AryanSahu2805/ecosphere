@@ -58,6 +58,7 @@ public class AuthController {
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole().name())
+                .organizationId(user.getOrganizationId())
                 .build();
 
         auditLogService.log(
