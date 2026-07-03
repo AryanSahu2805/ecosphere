@@ -33,8 +33,13 @@ const severityColor = (severity) => {
 };
 
 function AlertsPage() {
-    const { user, isAdmin, isManager } = useAuth();
-    const orgId = user?.organizationId || 1;
+    const { isAdmin, isManager, getOrgId } = useAuth();
+
+    const getEffectiveOrgId = () => {
+        if (isAdmin()) return 1;
+        const orgId = getOrgId();
+        return orgId || null;
+    };
 
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -45,6 +50,12 @@ function AlertsPage() {
     });
 
     const loadAlerts = async () => {
+        const orgId = getEffectiveOrgId();
+        if (!orgId) {
+            setError('No organization assigned to your account.');
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             const res = await alertsApi.getByOrganization(orgId);

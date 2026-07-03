@@ -21,4 +21,5 @@ public class RegisterRequestDTO {
     private String password;
 
     private Role role;
+    private Long organizationId;
 }

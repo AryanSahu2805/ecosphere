@@ -45,10 +45,20 @@ export function AuthProvider({ children }) {
     const isAuditor = () => user?.role === 'AUDITOR';
     const hasRole = (role) => user?.role === role;
 
+    const getOrgId = () => {
+        if (!user) return null;
+        if (user.role === 'ADMIN') return null;
+        return user.organizationId || null;
+    };
+
+    const requiresOrgSelection = () =>
+        user?.role === 'ADMIN';
+
     return (
         <AuthContext.Provider value={{
             user, token, login, logout, loading,
-            isAdmin, isManager, isAuditor, hasRole
+            isAdmin, isManager, isAuditor, hasRole,
+            getOrgId, requiresOrgSelection
         }}>
             {children}
         </AuthContext.Provider>

@@ -29,8 +29,13 @@ const statusColor = (status) => {
 };
 
 function GoalsPage() {
-    const { user, isAdmin, isManager } = useAuth();
-    const orgId = user?.organizationId || 1;
+    const { isAdmin, isManager, getOrgId } = useAuth();
+
+    const getEffectiveOrgId = () => {
+        if (isAdmin()) return 1;
+        const orgId = getOrgId();
+        return orgId || null;
+    };
 
     const [goals, setGoals] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,7 +43,7 @@ function GoalsPage() {
     const [progress, setProgress] = useState({});
     const [dialogOpen, setDialogOpen] = useState(false);
     const [formData, setFormData] = useState({
-        organizationId: user?.organizationId || '',
+        organizationId: getOrgId() || '',
         targetMetric: 'TOTAL_EMISSIONS',
         targetValue: '',
         deadline: '',
@@ -57,6 +62,12 @@ function GoalsPage() {
         setSnackbar({ open: true, message, severity });
 
     const loadGoals = async () => {
+        const orgId = getEffectiveOrgId();
+        if (!orgId) {
+            setError('No organization assigned to your account.');
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             const res = await goalsApi.getByOrganization(orgId);
@@ -80,7 +91,7 @@ function GoalsPage() {
 
     const openCreate = () => {
         setFormData({
-            organizationId: user?.organizationId || '',
+            organizationId: getEffectiveOrgId() || '',
             targetMetric: 'TOTAL_EMISSIONS',
             targetValue: '',
             deadline: '',

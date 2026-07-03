@@ -44,10 +44,11 @@ const REPORTS = [
 ];
 
 function ReportsPage() {
-    const { user } = useAuth();
-    const [orgId, setOrgId] = useState(
-        user?.organizationId || 1
-    );
+    const { isAdmin, getOrgId } = useAuth();
+    const [orgId, setOrgId] = useState(() => {
+        if (isAdmin()) return 1;
+        return getOrgId() || 1;
+    });
     const [dateRange, setDateRange] = useState({
         from: '2024-01-01',
         to: new Date().toISOString().split('T')[0],

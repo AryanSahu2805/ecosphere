@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
     Grid, Box, Typography, Card, CardContent,
-    Alert, CircularProgress, Chip
+    Alert, CircularProgress, Chip,
+    Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import {
     BoltOutlined, FlightTakeoff, Storage,
@@ -15,19 +16,25 @@ import {
 import StatCard from '../../components/common/StatCard';
 import analyticsApi from '../../api/analyticsApi';
 import alertsApi from '../../api/alertsApi';
+import organizationsApi from '../../api/organizationsApi';
 import { useAuth } from '../../context/AuthContext';
 
 function DashboardPage() {
-    const { user } = useAuth();
+    const { user, isAdmin, getOrgId } = useAuth();
+
     const [summary, setSummary] = useState(null);
     const [trends, setTrends] = useState([]);
     const [recentAlerts, setRecentAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [orgError, setOrgError] = useState('');
+    const [selectedOrgId, setSelectedOrgId] = useState(null);
+    const [organizations, setOrganizations] = useState([]);
 
     const loadData = async (orgId) => {
         try {
             setLoading(true);
+            setError('');
             const year = new Date().getFullYear();
             const from = `${year}-01-01`;
             const to = `${year}-12-31`;
@@ -42,17 +49,51 @@ function DashboardPage() {
             setSummary(summaryRes.data);
             setTrends(trendsRes.data);
             setRecentAlerts(alertsRes.data.slice(0, 5));
-        } catch (err) {
+        } catch {
             setError('Failed to load dashboard data');
         } finally {
             setLoading(false);
         }
     };
 
+    // Mount: resolve org
     useEffect(() => {
-        const orgId = user?.organizationId || 1;
-        loadData(orgId);
+        const init = async () => {
+            if (isAdmin()) {
+                try {
+                    const res = await organizationsApi.getAll();
+                    setOrganizations(res.data);
+                    if (res.data.length > 0) {
+                        setSelectedOrgId(res.data[0].id);
+                    } else {
+                        setLoading(false);
+                    }
+                } catch {
+                    setError('Failed to load organizations');
+                    setLoading(false);
+                }
+            } else {
+                const orgId = getOrgId();
+                if (orgId) {
+                    setSelectedOrgId(orgId);
+                } else {
+                    setOrgError(
+                        'Your account is not assigned to an ' +
+                        'organization. Contact your administrator.'
+                    );
+                    setLoading(false);
+                }
+            }
+        };
+        init();
     }, [user]);
+
+    // Load data whenever selectedOrgId resolves
+    useEffect(() => {
+        if (selectedOrgId) {
+            loadData(selectedOrgId);
+        }
+    }, [selectedOrgId]);
 
     const year = new Date().getFullYear();
 
@@ -74,6 +115,30 @@ function DashboardPage() {
                     {year} emissions overview
                 </Typography>
             </Box>
+
+            {orgError && (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                    {orgError}
+                </Alert>
+            )}
+
+            {/* Admin org selector */}
+            {isAdmin() && organizations.length > 0 && (
+                <FormControl sx={{ mb: 3, minWidth: 280 }}>
+                    <InputLabel>Organization</InputLabel>
+                    <Select
+                        value={selectedOrgId || ''}
+                        label="Organization"
+                        onChange={(e) =>
+                            setSelectedOrgId(e.target.value)}>
+                        {organizations.map((org) => (
+                            <MenuItem key={org.id} value={org.id}>
+                                {org.name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
 
             {loading && (
                 <Box display="flex" justifyContent="center"
@@ -181,7 +246,7 @@ function DashboardPage() {
                                         <Box key={alert.id} mb={1}>
                                             <Chip
                                                 label={alert.alertType
-                                                    .replace('_', ' ')}
+                                                    .replace(/_/g, ' ')}
                                                 color={alertChipColor(
                                                     alert.severity)}
                                                 size="small"

@@ -18,5 +18,6 @@ public class UserResponseDTO {
     private String name;
     private String email;
     private Role role;
+    private Long organizationId;
     private LocalDateTime createdAt;
 }
