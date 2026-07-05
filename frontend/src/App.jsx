@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Layout from './components/layout/Layout';
 
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -69,10 +70,9 @@ function App() {
 
                         {/* Redirects */}
                         <Route path="/"
-                            element={<Navigate to="/login"
-                                replace />} />
+                            element={<LandingPage />} />
                         <Route path="*"
-                            element={<Navigate to="/login"
+                            element={<Navigate to="/"
                                 replace />} />
                     </Routes>
                 </BrowserRouter>

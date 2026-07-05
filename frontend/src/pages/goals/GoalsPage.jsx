@@ -220,57 +220,76 @@ function GoalsPage() {
                                 </Box>
 
                                 {p && (
-                                    <Box mt={2}>
+                                    <Box mt={2.5}>
+                                        {/* Progress row */}
                                         <Box display="flex"
                                             justifyContent="space-between"
-                                            mb={0.5}>
-                                            <Typography variant="body2">
-                                                Current: {p.currentValue} kg CO2
+                                            alignItems="center"
+                                            mb={1}>
+                                            <Typography variant="body2"
+                                                fontWeight={500}>
+                                                Current: {p.currentValue} kg CO₂
                                             </Typography>
-                                            <Typography variant="body2">
+                                            <Typography variant="body2"
+                                                fontWeight={600}
+                                                color={p.onTrack ? 'success.main' : 'warning.main'}>
                                                 {p.progressPercentage}% complete
                                             </Typography>
                                         </Box>
+
+                                        {/* Progress bar */}
                                         <LinearProgress
                                             variant="determinate"
-                                            value={Math.min(
-                                                Number(p.progressPercentage),
-                                                100
-                                            )}
-                                            color={p.onTrack
-                                                ? 'success'
-                                                : 'warning'}
-                                            sx={{
-                                                height: 8,
-                                                borderRadius: 4
-                                            }}
+                                            value={Math.min(Number(p.progressPercentage), 100)}
+                                            color={p.onTrack ? 'success' : 'warning'}
+                                            sx={{ height: 10, borderRadius: 5, mb: 1.5 }}
                                         />
-                                        <Box display="flex"
-                                            justifyContent="space-between"
-                                            mt={0.5}>
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary">
-                                                Baseline: {p.baselineValue} kg CO2
-                                            </Typography>
-                                            <Typography
-                                                variant="caption"
-                                                color={p.daysRemaining < 0
-                                                    ? 'error.main'
-                                                    : 'text.secondary'}>
-                                                {p.daysRemaining < 0
-                                                    ? `${Math.abs(p.daysRemaining)} days overdue`
-                                                    : `${p.daysRemaining} days remaining`}
-                                            </Typography>
-                                            <Typography
-                                                variant="caption"
-                                                color={p.onTrack
-                                                    ? 'success.main'
-                                                    : 'warning.main'}>
-                                                {p.onTrack
-                                                    ? '✓ On track'
-                                                    : '⚠ Behind schedule'}
-                                            </Typography>
+
+                                        {/* Three info badges, each clearly separated */}
+                                        <Box display="flex" flexWrap="wrap" gap={1.5} mt={0.5}>
+                                            <Box sx={{
+                                                px: 1.5, py: 0.5,
+                                                bgcolor: '#F1F5F9',
+                                                borderRadius: 2,
+                                                border: '1px solid #E2E8F0',
+                                            }}>
+                                                <Typography variant="caption"
+                                                    color="text.secondary"
+                                                    fontWeight={500}>
+                                                    📊 Baseline: {p.baselineValue} kg CO₂
+                                                </Typography>
+                                            </Box>
+
+                                            <Box sx={{
+                                                px: 1.5, py: 0.5,
+                                                bgcolor: p.daysRemaining < 0
+                                                    ? '#FEF2F2' : '#F0FDF4',
+                                                borderRadius: 2,
+                                                border: `1px solid ${p.daysRemaining < 0 ? '#FECACA' : '#BBF7D0'}`,
+                                            }}>
+                                                <Typography variant="caption"
+                                                    color={p.daysRemaining < 0
+                                                        ? 'error.main'
+                                                        : 'success.main'}
+                                                    fontWeight={500}>
+                                                    {p.daysRemaining < 0
+                                                        ? `⏰ ${Math.abs(p.daysRemaining)} days overdue`
+                                                        : `📅 ${p.daysRemaining} days remaining`}
+                                                </Typography>
+                                            </Box>
+
+                                            <Box sx={{
+                                                px: 1.5, py: 0.5,
+                                                bgcolor: p.onTrack ? '#F0FDF4' : '#FFFBEB',
+                                                borderRadius: 2,
+                                                border: `1px solid ${p.onTrack ? '#BBF7D0' : '#FDE68A'}`,
+                                            }}>
+                                                <Typography variant="caption"
+                                                    color={p.onTrack ? 'success.main' : 'warning.main'}
+                                                    fontWeight={500}>
+                                                    {p.onTrack ? '✅ On track' : '⚠️ Behind schedule'}
+                                                </Typography>
+                                            </Box>
                                         </Box>
                                     </Box>
                                 )}
