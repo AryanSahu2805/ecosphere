@@ -7,6 +7,7 @@ import com.EcoSphere.Backend.model.EnergyRecord;
 import com.EcoSphere.Backend.model.User;
 import com.EcoSphere.Backend.repository.DepartmentRepository;
 import com.EcoSphere.Backend.repository.EnergyRecordRepository;
+import com.EcoSphere.Backend.repository.LocationRepository;
 import com.EcoSphere.Backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,7 @@ public class EnergyRecordService {
 
     private final EnergyRecordRepository energyRecordRepository;
     private final DepartmentRepository departmentRepository;
+    private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final EmissionCalculationService emissionCalculationService;
 
@@ -85,6 +87,20 @@ public class EnergyRecordService {
         EnergyRecord saved = energyRecordRepository.save(record);
 
         return mapToDTO(saved);
+    }
+
+    public List<EnergyRecordResponseDTO> getByOrganization(Long organizationId) {
+        List<Long> locationIds = locationRepository.findIdsByOrganizationId(organizationId);
+        if (locationIds.isEmpty()) return List.of();
+
+        List<Long> deptIds = departmentRepository.findIdsByLocationIdIn(locationIds);
+        if (deptIds.isEmpty()) return List.of();
+
+        return deptIds.stream()
+                .flatMap(deptId -> energyRecordRepository.findByDepartmentId(deptId).stream())
+                .sorted(java.util.Comparator.comparing(EnergyRecord::getRecordedDate).reversed())
+                .map(this::mapToDTO)
+                .toList();
     }
 
     public void deleteEnergyRecord(Long id) {

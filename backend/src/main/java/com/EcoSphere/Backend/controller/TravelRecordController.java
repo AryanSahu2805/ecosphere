@@ -57,6 +57,12 @@ public class TravelRecordController {
         return ResponseEntity.ok(travelRecordService.updateTravelRecord(id, request));
     }
 
+    @GetMapping("/organization/{organizationId}")
+    public ResponseEntity<List<TravelRecordResponseDTO>> getByOrganization(
+            @PathVariable Long organizationId) {
+        return ResponseEntity.ok(travelRecordService.getByOrganization(organizationId));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteTravelRecord(@PathVariable Long id) {

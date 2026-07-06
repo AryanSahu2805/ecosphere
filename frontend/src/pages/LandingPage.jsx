@@ -1,5 +1,5 @@
 import { Box, Typography, Button, Container,
-         Grid, Card, CardContent, Chip, Stack }
+         Chip, Stack }
     from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -55,13 +55,6 @@ function LandingPage() {
         },
     ];
 
-    const stats = [
-        { value: '10+', label: 'Emission Sources Tracked' },
-        { value: '3', label: 'User Roles' },
-        { value: 'Real-time', label: 'CO₂ Calculations' },
-        { value: 'ESG', label: 'Compliance Ready' },
-    ];
-
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#0F172A' }}>
 
@@ -104,7 +97,7 @@ function LandingPage() {
                             background: 'linear-gradient(135deg, #16A34A, #0D9488)',
                             boxShadow: '0 4px 14px rgba(22,163,74,0.4)',
                         }}>
-                        Get Started
+                        Register Your Organization
                     </Button>
                 </Stack>
             </Box>
@@ -129,6 +122,10 @@ function LandingPage() {
                 }} />
 
                 <Container maxWidth="md" sx={{ position: 'relative' }}>
+                  <Box sx={{
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', textAlign: 'center',
+                  }}>
                     <Chip label="🌿 Enterprise Carbon Intelligence Platform" sx={{
                         mb: 3, bgcolor: 'rgba(22,163,74,0.1)', color: '#4ADE80',
                         border: '1px solid rgba(22,163,74,0.25)',
@@ -158,8 +155,16 @@ function LandingPage() {
                         with the analytics and reporting needed for ESG compliance.
                     </Typography>
 
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}
-                        justifyContent="center" alignItems="center">
+                    {/* CTA Buttons */}
+                    <Box sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: 2,
+                        mt: 4,
+                        width: '100%',
+                    }}>
                         <Button variant="contained" size="large"
                             onClick={() => navigate('/register')}
                             endIcon={<ArrowForward />}
@@ -169,7 +174,7 @@ function LandingPage() {
                                 boxShadow: '0 8px 24px rgba(22,163,74,0.35)',
                                 '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 12px 32px rgba(22,163,74,0.45)' },
                             }}>
-                            Start Free Trial
+                            Register Your Organization
                         </Button>
                         <Button variant="outlined" size="large"
                             onClick={() => navigate('/login')}
@@ -180,13 +185,22 @@ function LandingPage() {
                             }}>
                             Sign In to Dashboard
                         </Button>
-                    </Stack>
+                    </Box>
 
-                    <Stack direction="row" spacing={3} justifyContent="center"
-                        flexWrap="wrap" sx={{ mt: 4 }}>
+                    {/* Trust badges */}
+                    <Box sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 3,
+                        mt: 3,
+                        width: '100%',
+                    }}>
                         {['JWT Secured', 'Role-Based Access', 'Audit Logging', 'ESG Ready']
                             .map(badge => (
-                                <Box key={badge} display="flex" alignItems="center" gap={0.75}>
+                                <Box key={badge} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                                     <CheckCircle sx={{ fontSize: 16, color: '#4ADE80' }} />
                                     <Typography variant="caption"
                                         sx={{ color: '#64748B', fontWeight: 500 }}>
@@ -194,7 +208,8 @@ function LandingPage() {
                                     </Typography>
                                 </Box>
                             ))}
-                    </Stack>
+                    </Box>
+                  </Box>
                 </Container>
             </Box>
 
@@ -202,34 +217,40 @@ function LandingPage() {
             <Box sx={{
                 borderTop: '1px solid rgba(255,255,255,0.06)',
                 borderBottom: '1px solid rgba(255,255,255,0.06)',
-                bgcolor: 'rgba(255,255,255,0.02)', py: 4, px: { xs: 3, md: 8 },
+                bgcolor: 'rgba(255,255,255,0.02)', py: 4,
             }}>
-                <Grid container spacing={2} justifyContent="center">
-                    {stats.map(stat => (
-                        <Grid item xs={6} sm={3} key={stat.label}>
-                            <Box textAlign="center">
-                                <Typography variant="h4" fontWeight={800} sx={{
-                                    background: 'linear-gradient(135deg, #4ADE80, #2DD4BF)',
-                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                }}>
-                                    {stat.value}
-                                </Typography>
-                                <Typography variant="body2"
-                                    sx={{ color: '#64748B', fontWeight: 500 }}>
-                                    {stat.label}
-                                </Typography>
-                            </Box>
-                        </Grid>
+                <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    maxWidth: 900, mx: 'auto', px: 4, gap: 2,
+                }}>
+                    {[
+                        { value: '10+', label: 'Emission Sources Tracked' },
+                        { value: '3', label: 'User Roles' },
+                        { value: 'Real-time', label: 'CO₂ Calculations' },
+                        { value: 'ESG', label: 'Compliance Ready' },
+                    ].map(stat => (
+                        <Box key={stat.label} textAlign="center">
+                            <Typography variant="h4" fontWeight={800} sx={{
+                                background: 'linear-gradient(135deg, #4ADE80, #2DD4BF)',
+                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                            }}>
+                                {stat.value}
+                            </Typography>
+                            <Typography variant="body2"
+                                sx={{ color: '#64748B', fontWeight: 500 }}>
+                                {stat.label}
+                            </Typography>
+                        </Box>
                     ))}
-                </Grid>
+                </Box>
             </Box>
 
             {/* Features grid */}
             <Container maxWidth="lg" sx={{ py: { xs: 8, md: 14 }, px: { xs: 3, md: 4 } }}>
                 <Box textAlign="center" mb={8}>
-                    <Typography variant="overline" sx={{
-                        color: '#4ADE80', fontWeight: 700, letterSpacing: '0.1em',
-                    }}>
+                    <Typography variant="overline"
+                        sx={{ color: '#4ADE80', fontWeight: 700, letterSpacing: '0.1em' }}>
                         EVERYTHING YOU NEED
                     </Typography>
                     <Typography variant="h3" fontWeight={700} sx={{ color: '#F8FAFC', mt: 1 }}>
@@ -237,43 +258,46 @@ function LandingPage() {
                     </Typography>
                 </Box>
 
-                <Grid container spacing={3}>
+                <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+                    gap: 3,
+                    alignItems: 'stretch',
+                }}>
                     {features.map(feature => (
-                        <Grid item xs={12} sm={6} md={4} key={feature.title}>
-                            <Card sx={{
-                                bgcolor: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.06)',
-                                borderRadius: 4, p: 1, height: '100%',
-                                '&:hover': {
-                                    bgcolor: 'rgba(255,255,255,0.05)',
-                                    border: `1px solid ${feature.color}30`,
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 16px 40px ${feature.color}15`,
-                                },
-                                transition: 'all 0.3s ease',
+                        <Box key={feature.title} sx={{
+                            bgcolor: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 4, p: 3,
+                            display: 'flex', flexDirection: 'column',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                                bgcolor: 'rgba(255,255,255,0.05)',
+                                borderColor: `${feature.color}40`,
+                                transform: 'translateY(-4px)',
+                                boxShadow: `0 16px 40px ${feature.color}15`,
+                            },
+                        }}>
+                            <Box sx={{
+                                width: 56, height: 56, borderRadius: 3,
+                                bgcolor: `${feature.color}20`,
+                                display: 'flex', alignItems: 'center',
+                                justifyContent: 'center',
+                                color: feature.color, mb: 2.5, fontSize: 28,
                             }}>
-                                <CardContent sx={{ p: 3 }}>
-                                    <Box sx={{
-                                        width: 56, height: 56, borderRadius: 3,
-                                        bgcolor: `${feature.color}15`,
-                                        display: 'flex', alignItems: 'center',
-                                        justifyContent: 'center', color: feature.color, mb: 2.5,
-                                    }}>
-                                        {feature.icon}
-                                    </Box>
-                                    <Typography variant="h6" fontWeight={700}
-                                        sx={{ color: '#F1F5F9', mb: 1 }}>
-                                        {feature.title}
-                                    </Typography>
-                                    <Typography variant="body2"
-                                        sx={{ color: '#64748B', lineHeight: 1.7 }}>
-                                        {feature.description}
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        </Grid>
+                                {feature.icon}
+                            </Box>
+                            <Typography variant="h6" fontWeight={700}
+                                sx={{ color: '#F1F5F9', mb: 1 }}>
+                                {feature.title}
+                            </Typography>
+                            <Typography variant="body2"
+                                sx={{ color: '#64748B', lineHeight: 1.7, flexGrow: 1 }}>
+                                {feature.description}
+                            </Typography>
+                        </Box>
                     ))}
-                </Grid>
+                </Box>
             </Container>
 
             {/* CTA section */}
@@ -296,7 +320,7 @@ function LandingPage() {
                         background: 'linear-gradient(135deg, #16A34A, #0D9488)',
                         boxShadow: '0 8px 24px rgba(22,163,74,0.35)',
                     }}>
-                    Get Started Free
+                    Register Your Organization
                 </Button>
             </Box>
 

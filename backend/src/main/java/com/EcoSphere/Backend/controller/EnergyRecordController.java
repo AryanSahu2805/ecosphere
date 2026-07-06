@@ -57,6 +57,12 @@ public class EnergyRecordController {
         return ResponseEntity.ok(energyRecordService.updateEnergyRecord(id, request));
     }
 
+    @GetMapping("/organization/{organizationId}")
+    public ResponseEntity<List<EnergyRecordResponseDTO>> getByOrganization(
+            @PathVariable Long organizationId) {
+        return ResponseEntity.ok(energyRecordService.getByOrganization(organizationId));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteEnergyRecord(@PathVariable Long id) {

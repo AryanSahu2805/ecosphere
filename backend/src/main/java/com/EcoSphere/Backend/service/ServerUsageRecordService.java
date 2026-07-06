@@ -6,6 +6,7 @@ import com.EcoSphere.Backend.exception.ResourceNotFoundException;
 import com.EcoSphere.Backend.model.ServerUsageRecord;
 import com.EcoSphere.Backend.model.User;
 import com.EcoSphere.Backend.repository.DepartmentRepository;
+import com.EcoSphere.Backend.repository.LocationRepository;
 import com.EcoSphere.Backend.repository.ServerUsageRecordRepository;
 import com.EcoSphere.Backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class ServerUsageRecordService {
 
     private final ServerUsageRecordRepository serverUsageRecordRepository;
     private final DepartmentRepository departmentRepository;
+    private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final EmissionCalculationService emissionCalculationService;
 
@@ -85,6 +87,20 @@ public class ServerUsageRecordService {
         ServerUsageRecord saved = serverUsageRecordRepository.save(record);
 
         return mapToDTO(saved);
+    }
+
+    public List<ServerUsageRecordResponseDTO> getByOrganization(Long organizationId) {
+        List<Long> locationIds = locationRepository.findIdsByOrganizationId(organizationId);
+        if (locationIds.isEmpty()) return List.of();
+
+        List<Long> deptIds = departmentRepository.findIdsByLocationIdIn(locationIds);
+        if (deptIds.isEmpty()) return List.of();
+
+        return deptIds.stream()
+                .flatMap(deptId -> serverUsageRecordRepository.findByDepartmentId(deptId).stream())
+                .sorted(java.util.Comparator.comparing(ServerUsageRecord::getRecordedDate).reversed())
+                .map(this::mapToDTO)
+                .toList();
     }
 
     public void deleteServerUsageRecord(Long id) {

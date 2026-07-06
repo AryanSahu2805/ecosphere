@@ -11,6 +11,8 @@ const makeRecordApi = (path) => ({
     axiosInstance.put(`/${path}/${id}`, data),
   delete: (id) =>
     axiosInstance.delete(`/${path}/${id}`),
+  getByOrganization: (orgId) =>
+    axiosInstance.get(`/${path}/organization/${orgId}`),
 });
 
 export const energyRecordsApi =

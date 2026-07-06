@@ -1,28 +1,27 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { Box, CircularProgress } from '@mui/material';
+import { useAuth } from '../../context/AuthContext';
+import { tokens } from '../../theme/theme';
 
-function ProtectedRoute({ requiredRole }) {
-    const { user, token, loading } = useAuth();
+export default function ProtectedRoute({ requiredRole }) {
+  const { user, token, loading } = useAuth();
 
-    if (loading) {
-        return (
-            <Box display="flex" justifyContent="center"
-                 alignItems="center" minHeight="100vh">
-                <CircularProgress color="primary" />
-            </Box>
-        );
-    }
+  if (loading) {
+    return (
+      <Box sx={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh', bgcolor: tokens.colors.bg,
+      }}>
+        <CircularProgress size={32} sx={{ color: tokens.colors.primary }} />
+      </Box>
+    );
+  }
 
-    if (!token || !user) {
-        return <Navigate to="/login" replace />;
-    }
+  if (!token || !user) return <Navigate to="/login" replace />;
 
-    if (requiredRole && user.role !== requiredRole) {
-        return <Navigate to="/app/dashboard" replace />;
-    }
+  if (requiredRole && user.role !== requiredRole) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
 
-    return <Outlet />;
+  return <Outlet />;
 }
-
-export default ProtectedRoute;

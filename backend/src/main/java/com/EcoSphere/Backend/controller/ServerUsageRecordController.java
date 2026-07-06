@@ -57,6 +57,12 @@ public class ServerUsageRecordController {
         return ResponseEntity.ok(serverUsageRecordService.updateServerUsageRecord(id, request));
     }
 
+    @GetMapping("/organization/{organizationId}")
+    public ResponseEntity<List<ServerUsageRecordResponseDTO>> getByOrganization(
+            @PathVariable Long organizationId) {
+        return ResponseEntity.ok(serverUsageRecordService.getByOrganization(organizationId));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteServerUsageRecord(@PathVariable Long id) {

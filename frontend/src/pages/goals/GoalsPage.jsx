@@ -1,418 +1,181 @@
 import { useState, useEffect } from 'react';
 import {
-    Box, Card, CardContent, Typography, Chip,
-    Button, Alert, CircularProgress, LinearProgress,
-    Dialog, DialogTitle, DialogContent,
-    DialogActions, TextField, Snackbar,
-    Select, MenuItem, FormControl, InputLabel
+  Box, Button, Card, CardContent, Typography,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Alert, Snackbar, Select, MenuItem,
+  FormControl, LinearProgress,
 } from '@mui/material';
-import PageHeader from '../../components/common/PageHeader';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
+import { AddRounded, TrackChangesOutlined } from '@mui/icons-material';
+import { PageShell, EmptyState } from '../../components/ui';
+import StatusBadge from '../../components/ui/StatusBadge';
+import { PageSkeleton } from '../../components/ui/SkeletonLoader';
+import { tokens } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import goalsApi from '../../api/goalsApi';
 
-const METRICS = [
-    'TOTAL_EMISSIONS',
-    'ENERGY_EMISSIONS',
-    'TRAVEL_EMISSIONS',
-    'SERVER_EMISSIONS',
-];
+const METRICS = ['TOTAL_EMISSIONS', 'ENERGY_EMISSIONS', 'TRAVEL_EMISSIONS', 'SERVER_EMISSIONS'];
+const METRIC_LABELS = { TOTAL_EMISSIONS: 'Total Emissions', ENERGY_EMISSIONS: 'Energy', TRAVEL_EMISSIONS: 'Travel', SERVER_EMISSIONS: 'Server' };
+const Label = ({ children }) => <Box component="label" sx={{ fontSize: 13, fontWeight: 600, color: tokens.colors.text, display: 'block', mb: 0.75 }}>{children}</Box>;
 
-const statusColor = (status) => {
-    switch (status) {
-        case 'ACTIVE':     return 'primary';
-        case 'ACHIEVED':   return 'success';
-        case 'MISSED':     return 'error';
-        case 'CANCELLED':  return 'default';
-        default:           return 'default';
-    }
-};
+export default function GoalsPage() {
+  const [goals, setGoals]       = useState([]);
+  const [progress, setProgress] = useState({});
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [open, setOpen]         = useState(false);
+  const [form, setForm]         = useState({ targetMetric: 'TOTAL_EMISSIONS', targetValue: '', deadline: '', description: '' });
+  const [formErr, setFormErr]   = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [snack, setSnack]       = useState({ open: false, message: '', severity: 'success' });
+  const { isAdmin, isManager, getOrgId } = useAuth();
 
-function GoalsPage() {
-    const { isAdmin, isManager, getOrgId } = useAuth();
+  const orgId = getOrgId() || 1;
 
-    const getEffectiveOrgId = () => {
-        if (isAdmin()) return 1;
-        const orgId = getOrgId();
-        return orgId || null;
-    };
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await goalsApi.getByOrganization(orgId);
+      const gs  = res.data;
+      setGoals(gs);
+      const progs = await Promise.all(gs.map(g => goalsApi.getProgress(g.id)));
+      const map = {};
+      progs.forEach((r, i) => { map[gs[i].id] = r.data; });
+      setProgress(map);
+    } catch { setError('Failed to load goals.'); }
+    finally { setLoading(false); }
+  };
 
-    const [goals, setGoals] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [progress, setProgress] = useState({});
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [formData, setFormData] = useState({
-        organizationId: getOrgId() || '',
-        targetMetric: 'TOTAL_EMISSIONS',
-        targetValue: '',
-        deadline: '',
-        description: '',
-    });
-    const [formError, setFormError] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [cancelDialog, setCancelDialog] = useState({
-        open: false, goalId: null
-    });
-    const [snackbar, setSnackbar] = useState({
-        open: false, message: '', severity: 'success'
-    });
+  useEffect(() => { load(); }, []);
 
-    const showSnackbar = (message, severity = 'success') =>
-        setSnackbar({ open: true, message, severity });
+  const openCreate = () => { setForm({ organizationId: orgId, targetMetric: 'TOTAL_EMISSIONS', targetValue: '', deadline: '', description: '' }); setFormErr(''); setOpen(true); };
+  const handle = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
 
-    const loadGoals = async () => {
-        const orgId = getEffectiveOrgId();
-        if (!orgId) {
-            setError('No organization assigned to your account.');
-            setLoading(false);
-            return;
-        }
-        try {
-            setLoading(true);
-            const res = await goalsApi.getByOrganization(orgId);
-            const goalsData = res.data;
-            setGoals(goalsData);
+  const save = async () => {
+    if (!form.targetValue || !form.deadline) { setFormErr('Target value and deadline are required.'); return; }
+    setSaving(true);
+    try {
+      await goalsApi.create({ ...form, organizationId: orgId });
+      setOpen(false); load();
+      setSnack({ open: true, message: 'Goal created successfully.', severity: 'success' });
+    } catch (err) { setFormErr(err.response?.data?.error || 'Failed to create goal.'); }
+    finally { setSaving(false); }
+  };
 
-            const progressResults = await Promise.all(
-                goalsData.map((g) => goalsApi.getProgress(g.id))
-            );
-            const progressMap = {};
-            progressResults.forEach((r, i) => {
-                progressMap[goalsData[i].id] = r.data;
-            });
-            setProgress(progressMap);
-        } catch {
-            setError('Failed to load goals');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const cancel = async (id) => {
+    try { await goalsApi.cancel(id); load(); setSnack({ open: true, message: 'Goal cancelled.', severity: 'info' }); }
+    catch (err) { setSnack({ open: true, message: err.response?.data?.error || 'Cannot cancel.', severity: 'error' }); }
+  };
 
-    const openCreate = () => {
-        setFormData({
-            organizationId: getEffectiveOrgId() || '',
-            targetMetric: 'TOTAL_EMISSIONS',
-            targetValue: '',
-            deadline: '',
-            description: '',
-        });
-        setFormError('');
-        setDialogOpen(true);
-    };
+  if (loading) return <PageSkeleton />;
 
-    const handleCreate = async () => {
-        if (!formData.targetValue || !formData.deadline) {
-            setFormError('Target value and deadline are required');
-            return;
-        }
-        setSaving(true);
-        try {
-            await goalsApi.create(formData);
-            showSnackbar('Goal created');
-            setDialogOpen(false);
-            loadGoals();
-        } catch (err) {
-            setFormError(
-                err.response?.data?.error
-                || 'Failed to create goal');
-        } finally {
-            setSaving(false);
-        }
-    };
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <PageShell
+        title="Sustainability Goals"
+        subtitle="Track emission reduction targets and monitor progress towards your net-zero commitments."
+        breadcrumbs={[{ label: 'Sustainability' }]}
+        actions={(isAdmin() || isManager()) && (
+          <Button variant="contained" startIcon={<AddRounded />} onClick={openCreate}>New Goal</Button>
+        )}
+      />
 
-    const handleCancel = async () => {
-        try {
-            await goalsApi.cancel(cancelDialog.goalId);
-            setCancelDialog({ open: false, goalId: null });
-            showSnackbar('Goal cancelled');
-            loadGoals();
-        } catch (err) {
-            setCancelDialog({ open: false, goalId: null });
-            showSnackbar(
-                err.response?.data?.error
-                    || 'Cannot cancel goal',
-                'error'
-            );
-        }
-    };
+      {error && <Alert severity="error">{error}</Alert>}
 
-    const handleChange = (e) =>
-        setFormData(prev => ({
-            ...prev, [e.target.name]: e.target.value
-        }));
-
-    useEffect(() => { loadGoals(); }, []);
-
-    return (
-        <Box>
-            <PageHeader
-                title="Sustainability Goals"
-                onAdd={openCreate}
-                canAdd={isAdmin() || isManager()}
-                addLabel="New Goal"
-            />
-
-            {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    {error}
-                </Alert>
-            )}
-
-            {loading ? (
-                <Box textAlign="center" mt={4}>
-                    <CircularProgress />
-                </Box>
-            ) : goals.length === 0 ? (
-                <Card>
-                    <CardContent>
-                        <Typography color="text.secondary"
-                            textAlign="center">
-                            No sustainability goals found
+      {goals.length === 0 ? (
+        <Card><CardContent sx={{ p: 0 }}>
+          <EmptyState emoji="🎯" title="No sustainability goals" description="Create your first emission reduction goal to start tracking progress." action={(isAdmin() || isManager()) ? openCreate : undefined} actionLabel="Create Goal" />
+        </CardContent></Card>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {goals.map(goal => {
+            const p = progress[goal.id];
+            const pct = p ? Math.min(+p.progressPercentage, 100) : 0;
+            return (
+              <Card key={goal.id}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: tokens.colors.primaryLt, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <TrackChangesOutlined sx={{ fontSize: 20, color: tokens.colors.primary }} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: tokens.colors.text }}>
+                          {goal.description || METRIC_LABELS[goal.targetMetric] + ' Reduction'}
                         </Typography>
-                    </CardContent>
-                </Card>
-            ) : (
-                goals.map((goal) => {
-                    const p = progress[goal.id];
-                    return (
-                        <Card key={goal.id} sx={{ mb: 2 }}>
-                            <CardContent>
-                                <Box display="flex"
-                                    justifyContent="space-between"
-                                    alignItems="flex-start">
-                                    <Box>
-                                        <Typography variant="h6">
-                                            {goal.description
-                                                || goal.targetMetric
-                                                    .replace(/_/g, ' ')}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color="text.secondary">
-                                            Target: {goal.targetValue} kg CO2
-                                            {' '}by {goal.deadline}
-                                        </Typography>
-                                    </Box>
-                                    <Box display="flex"
-                                        gap={1}
-                                        alignItems="center">
-                                        <Chip
-                                            label={goal.status}
-                                            color={statusColor(goal.status)}
-                                            size="small"
-                                        />
-                                        {isAdmin()
-                                            && goal.status === 'ACTIVE'
-                                            && (
-                                            <Button
-                                                size="small"
-                                                color="error"
-                                                onClick={() =>
-                                                    setCancelDialog({
-                                                        open: true,
-                                                        goalId: goal.id
-                                                    })}>
-                                                Cancel
-                                            </Button>
-                                        )}
-                                    </Box>
-                                </Box>
+                        <Typography sx={{ fontSize: 13, color: tokens.colors.textSec }}>
+                          Target: <strong>{goal.targetValue}</strong> kg · Deadline: {goal.deadline}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <StatusBadge value={goal.status} />
+                      {isAdmin() && goal.status === 'ACTIVE' && (
+                        <Button size="small" variant="outlined" color="error" onClick={() => cancel(goal.id)} sx={{ fontSize: 12, minHeight: 28, py: 0 }}>Cancel</Button>
+                      )}
+                    </Box>
+                  </Box>
 
-                                {p && (
-                                    <Box mt={2.5}>
-                                        {/* Progress row */}
-                                        <Box display="flex"
-                                            justifyContent="space-between"
-                                            alignItems="center"
-                                            mb={1}>
-                                            <Typography variant="body2"
-                                                fontWeight={500}>
-                                                Current: {p.currentValue} kg CO₂
-                                            </Typography>
-                                            <Typography variant="body2"
-                                                fontWeight={600}
-                                                color={p.onTrack ? 'success.main' : 'warning.main'}>
-                                                {p.progressPercentage}% complete
-                                            </Typography>
-                                        </Box>
-
-                                        {/* Progress bar */}
-                                        <LinearProgress
-                                            variant="determinate"
-                                            value={Math.min(Number(p.progressPercentage), 100)}
-                                            color={p.onTrack ? 'success' : 'warning'}
-                                            sx={{ height: 10, borderRadius: 5, mb: 1.5 }}
-                                        />
-
-                                        {/* Three info badges, each clearly separated */}
-                                        <Box display="flex" flexWrap="wrap" gap={1.5} mt={0.5}>
-                                            <Box sx={{
-                                                px: 1.5, py: 0.5,
-                                                bgcolor: '#F1F5F9',
-                                                borderRadius: 2,
-                                                border: '1px solid #E2E8F0',
-                                            }}>
-                                                <Typography variant="caption"
-                                                    color="text.secondary"
-                                                    fontWeight={500}>
-                                                    📊 Baseline: {p.baselineValue} kg CO₂
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{
-                                                px: 1.5, py: 0.5,
-                                                bgcolor: p.daysRemaining < 0
-                                                    ? '#FEF2F2' : '#F0FDF4',
-                                                borderRadius: 2,
-                                                border: `1px solid ${p.daysRemaining < 0 ? '#FECACA' : '#BBF7D0'}`,
-                                            }}>
-                                                <Typography variant="caption"
-                                                    color={p.daysRemaining < 0
-                                                        ? 'error.main'
-                                                        : 'success.main'}
-                                                    fontWeight={500}>
-                                                    {p.daysRemaining < 0
-                                                        ? `⏰ ${Math.abs(p.daysRemaining)} days overdue`
-                                                        : `📅 ${p.daysRemaining} days remaining`}
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{
-                                                px: 1.5, py: 0.5,
-                                                bgcolor: p.onTrack ? '#F0FDF4' : '#FFFBEB',
-                                                borderRadius: 2,
-                                                border: `1px solid ${p.onTrack ? '#BBF7D0' : '#FDE68A'}`,
-                                            }}>
-                                                <Typography variant="caption"
-                                                    color={p.onTrack ? 'success.main' : 'warning.main'}
-                                                    fontWeight={500}>
-                                                    {p.onTrack ? '✅ On track' : '⚠️ Behind schedule'}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </Box>
-                                )}
-                            </CardContent>
-                        </Card>
-                    );
-                })
-            )}
-
-            {/* Create dialog */}
-            <Dialog open={dialogOpen}
-                onClose={() => setDialogOpen(false)}
-                maxWidth="sm" fullWidth>
-                <DialogTitle>New Sustainability Goal</DialogTitle>
-                <DialogContent>
-                    {formError && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {formError}
-                        </Alert>
-                    )}
-                    {!isManager() && (
-                        <TextField
-                            fullWidth
-                            label="Organization ID"
-                            name="organizationId"
-                            type="number"
-                            value={formData.organizationId}
-                            onChange={handleChange}
-                            required
-                            sx={{ mt: 1, mb: 2 }}
-                        />
-                    )}
-                    <FormControl fullWidth sx={{ mb: 2 }}>
-                        <InputLabel>Target Metric</InputLabel>
-                        <Select
-                            name="targetMetric"
-                            value={formData.targetMetric}
-                            label="Target Metric"
-                            onChange={handleChange}>
-                            {METRICS.map((m) => (
-                                <MenuItem key={m} value={m}>
-                                    {m.replace(/_/g, ' ')}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                    <TextField
-                        fullWidth
-                        label="Target Value (kg CO2)"
-                        name="targetValue"
-                        type="number"
-                        inputProps={{ step: '0.01' }}
-                        value={formData.targetValue}
-                        onChange={handleChange}
-                        required
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Deadline"
-                        name="deadline"
-                        type="date"
-                        value={formData.deadline}
-                        onChange={handleChange}
-                        required
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        label="Description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        multiline
-                        rows={2}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDialogOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button variant="contained"
-                        onClick={handleCreate}
-                        disabled={saving}>
-                        {saving
-                            ? <CircularProgress size={20} />
-                            : 'Create Goal'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Cancel confirmation */}
-            <ConfirmDialog
-                open={cancelDialog.open}
-                title="Cancel Goal"
-                message="Are you sure you want to cancel this goal? This cannot be undone."
-                onConfirm={handleCancel}
-                onCancel={() =>
-                    setCancelDialog({ open: false, goalId: null })}
-                confirmLabel="Cancel Goal"
-                confirmColor="error"
-            />
-
-            {/* Snackbar */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() =>
-                    setSnackbar(prev => ({ ...prev, open: false }))}
-                anchorOrigin={{
-                    vertical: 'bottom', horizontal: 'center'
-                }}>
-                <Alert severity={snackbar.severity}
-                    onClose={() =>
-                        setSnackbar(prev => ({
-                            ...prev, open: false
-                        }))}>
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
+                  {p && (
+                    <Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography sx={{ fontSize: 13, color: tokens.colors.textSec }}>
+                          Current: <Box component="span" sx={{ fontWeight: 600, color: tokens.colors.text }}>{Number(p.currentValue).toFixed(2)} kg CO₂</Box>
+                        </Typography>
+                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: pct >= 50 ? tokens.colors.primary : tokens.colors.warning }}>
+                          {pct.toFixed(1)}% complete
+                        </Typography>
+                      </Box>
+                      <LinearProgress variant="determinate" value={pct}
+                        sx={{ height: 8, bgcolor: tokens.colors.surface, '& .MuiLinearProgress-bar': { bgcolor: pct >= 50 ? tokens.colors.primary : tokens.colors.warning } }} />
+                      <Box sx={{ display: 'flex', gap: 2, mt: 1.5, flexWrap: 'wrap' }}>
+                        {[
+                          { label: `Baseline: ${Number(p.baselineValue).toFixed(2)} kg`, bg: tokens.colors.surface, color: tokens.colors.textSec },
+                          p.daysRemaining < 0
+                            ? { label: `${Math.abs(p.daysRemaining)} days overdue`, bg: '#FEF2F2', color: tokens.colors.danger }
+                            : { label: `${p.daysRemaining} days remaining`, bg: '#EFF6FF', color: '#2563EB' },
+                          { label: p.onTrack ? '✓ On track' : '⚠ Behind', bg: p.onTrack ? '#F0FDF4' : '#FFFBEB', color: p.onTrack ? tokens.colors.primary : tokens.colors.warning },
+                        ].map((badge, i) => (
+                          <Box key={i} sx={{ display: 'inline-flex', alignItems: 'center', px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: badge.bg }}>
+                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: badge.color }}>{badge.label}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </Box>
-    );
-}
+      )}
 
-export default GoalsPage;
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth aria-labelledby="goal-dialog">
+        <DialogTitle id="goal-dialog">New Sustainability Goal</DialogTitle>
+        <DialogContent>
+          {formErr && <Alert severity="error" sx={{ mb: 2 }}>{formErr}</Alert>}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+            <Box>
+              <Label>Target Metric</Label>
+              <FormControl fullWidth>
+                <Select name="targetMetric" value={form.targetMetric} onChange={handle} size="small">
+                  {METRICS.map(m => <MenuItem key={m} value={m} sx={{ fontSize: 14 }}>{METRIC_LABELS[m]}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box><Label>Target Value (kg CO₂) *</Label><TextField fullWidth name="targetValue" type="number" inputProps={{ step: '0.01' }} value={form.targetValue} onChange={handle} placeholder="e.g. 200.00" /></Box>
+            <Box><Label>Deadline *</Label><TextField fullWidth name="deadline" type="date" value={form.deadline} onChange={handle} InputLabelProps={{ shrink: true }} /></Box>
+            <Box><Label>Description</Label><TextField fullWidth name="description" value={form.description} onChange={handle} placeholder="Optional description…" /></Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={save} disabled={saving}>{saving ? 'Creating…' : 'Create Goal'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack(p => ({ ...p, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snack.severity} onClose={() => setSnack(p => ({ ...p, open: false }))}>{snack.message}</Alert>
+      </Snackbar>
+    </Box>
+  );
+}
