@@ -1,5 +1,4 @@
 import { Box, Typography, Skeleton } from '@mui/material';
-import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material';
 import { ResponsiveContainer, LineChart, Line } from 'recharts';
 import { tokens } from '../../theme/theme';
 
@@ -23,6 +22,37 @@ function Sparkline({ data, color }) {
   );
 }
 
+function renderTrend(trend) {
+  if (trend === null || trend === undefined) {
+    return (
+      <Typography variant="caption" color="text.secondary">No data yet</Typography>
+    );
+  }
+  if (trend.direction === 'new') {
+    return (
+      <Typography variant="caption" color="error.main" fontWeight={600}>
+        ↑ New this month
+      </Typography>
+    );
+  }
+  if (trend.direction === 'neutral') {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        → 0% vs last month
+      </Typography>
+    );
+  }
+  const isUp = trend.direction === 'up';
+  return (
+    <Box display="flex" alignItems="center" gap={0.5}>
+      <Typography variant="caption" color={isUp ? 'error.main' : 'success.main'} fontWeight={600}>
+        {isUp ? '↑' : '↓'} {Math.abs(trend.percent)}%
+      </Typography>
+      <Typography variant="caption" color="text.secondary">vs last month</Typography>
+    </Box>
+  );
+}
+
 export default function KpiCard({
   title,
   value,
@@ -30,20 +60,10 @@ export default function KpiCard({
   icon,
   iconBg = '#DCFCE7',
   iconColor = tokens.colors.primary,
-  trend,          // number: +12 or -5
-  trendLabel = 'vs last month',
+  trend,          // object { percent, direction } or null
   sparkline,      // array of numbers for sparkline
   loading = false,
 }) {
-  const trendPositive = trend > 0;
-  const trendNeutral  = trend === 0 || trend == null;
-
-  const TrendIcon = trendNeutral ? TrendingFlat : trendPositive ? TrendingUp : TrendingDown;
-  const trendColor = trendNeutral
-    ? tokens.colors.textMuted
-    : trendPositive
-    ? tokens.colors.success
-    : tokens.colors.danger;
 
   if (loading) {
     return (
@@ -119,17 +139,7 @@ export default function KpiCard({
       )}
 
       {/* Trend */}
-      {trend != null && (
-        <Box display="flex" alignItems="center" gap={0.5}>
-          <TrendIcon sx={{ fontSize: 14, color: trendColor }} />
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: trendColor }}>
-            {trend > 0 ? '+' : ''}{trend}%
-          </Typography>
-          <Typography sx={{ fontSize: 12, color: tokens.colors.textMuted }}>
-            {trendLabel}
-          </Typography>
-        </Box>
-      )}
+      {sparkline && renderTrend(trend)}
     </Box>
   );
 }

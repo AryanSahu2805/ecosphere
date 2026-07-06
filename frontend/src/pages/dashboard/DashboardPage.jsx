@@ -26,6 +26,34 @@ import StatusBadge    from '../../components/ui/StatusBadge';
 import { DashboardSkeleton } from '../../components/ui/SkeletonLoader';
 import { tokens } from '../../theme/theme';
 
+function calculateTrend(data) {
+  if (!data || data.length === 0) return null;
+
+  const values = data.map(v => Number(v || 0));
+
+  const hasAnyData = values.some(v => v > 0);
+  if (!hasAnyData) return null;
+
+  const thisMonth = values[values.length - 1] || 0;
+  const lastMonth = values[values.length - 2] || 0;
+
+  if (lastMonth === 0 && thisMonth === 0) {
+    return { percent: 0, direction: 'neutral' };
+  }
+  if (lastMonth === 0 && thisMonth > 0) {
+    return { percent: null, direction: 'new' };
+  }
+  if (lastMonth > 0 && thisMonth === 0) {
+    return { percent: -100, direction: 'down' };
+  }
+
+  const percent = (thisMonth - lastMonth) / lastMonth * 100;
+  return {
+    percent: parseFloat(percent.toFixed(1)),
+    direction: percent > 0 ? 'up' : percent < 0 ? 'down' : 'neutral',
+  };
+}
+
 const CHART_COLORS = {
   energy: '#F59E0B',
   travel: '#3B82F6',
@@ -73,9 +101,13 @@ export default function DashboardPage() {
   const year = new Date().getFullYear();
 
   const loadData = async (orgId) => {
+    setSummary(null);
+    setTrends([]);
+    setAlerts([]);
+    setGoals([]);
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError('');
       const from = `${year}-01-01`, to = `${year}-12-31`;
       const [sumRes, trendRes, alertRes, goalRes] = await Promise.all([
         analyticsApi.getSummary(orgId, from, to),
@@ -151,7 +183,7 @@ export default function DashboardPage() {
       unit: 'kg',
       icon: <Co2Outlined sx={{ fontSize: 18 }} />,
       iconBg: '#DCFCE7', iconColor: tokens.colors.primary,
-      trend: -8,
+      trend: calculateTrend(totalSparkline),
       sparkline: totalSparkline,
       nav: '/app/reports',
       tooltip: 'View reports & exports →',
@@ -162,7 +194,7 @@ export default function DashboardPage() {
       unit: 'kg',
       icon: <BoltOutlined sx={{ fontSize: 18 }} />,
       iconBg: '#FEF9C3', iconColor: '#CA8A04',
-      trend: -4,
+      trend: calculateTrend(trends.map(t => +t.energyEmissions)),
       sparkline: trends.map(t => +t.energyEmissions),
       nav: '/app/energy-records',
       tooltip: 'View energy records →',
@@ -173,7 +205,7 @@ export default function DashboardPage() {
       unit: 'kg',
       icon: <FlightTakeoffOutlined sx={{ fontSize: 18 }} />,
       iconBg: '#DBEAFE', iconColor: '#2563EB',
-      trend: 12,
+      trend: calculateTrend(trends.map(t => +t.travelEmissions)),
       sparkline: trends.map(t => +t.travelEmissions),
       nav: '/app/travel-records',
       tooltip: 'View travel records →',
@@ -184,7 +216,7 @@ export default function DashboardPage() {
       unit: 'kg',
       icon: <StorageOutlined sx={{ fontSize: 18 }} />,
       iconBg: '#EDE9FE', iconColor: '#7C3AED',
-      trend: 0,
+      trend: calculateTrend(trends.map(t => +t.serverEmissions)),
       sparkline: trends.map(t => +t.serverEmissions),
       nav: '/app/server-records',
       tooltip: 'View server usage records →',

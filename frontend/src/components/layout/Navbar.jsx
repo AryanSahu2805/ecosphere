@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
   AppBar, Toolbar, Box, Typography, IconButton,
-  InputAdornment, TextField, Avatar, Menu, MenuItem,
+  TextField, Avatar, Menu, MenuItem,
   ListItemIcon, ListItemText, Divider, Chip, Badge,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Alert,
 } from '@mui/material';
 import {
-  MenuRounded, SearchRounded,
+  MenuRounded,
   NotificationsOutlined, PersonOutlined,
   LogoutOutlined, SettingsOutlined, KeyboardArrowDownRounded,
 } from '@mui/icons-material';
@@ -85,12 +85,6 @@ export default function Navbar({ onMenuClick }) {
               {page.title}
             </Typography>
           </Box>
-
-          {/* Search */}
-          <TextField placeholder="Search…" size="small"
-            sx={{ display: { xs: 'none', lg: 'flex' }, width: 220, '& .MuiOutlinedInput-root': { height: 36, fontSize: 13 } }}
-            InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded sx={{ fontSize: 16, color: tokens.colors.textMuted }} /></InputAdornment> }}
-          />
 
           {/* Notifications */}
           <IconButton size="small" aria-label="Notifications">
