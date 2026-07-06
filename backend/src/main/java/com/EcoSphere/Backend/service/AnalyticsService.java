@@ -28,12 +28,14 @@ public class AnalyticsService {
 
     private final OrganizationRepository organizationRepository;
     private final LocationRepository locationRepository;
+    private final OrganizationService organizationService;
     private final DepartmentRepository departmentRepository;
     private final EnergyRecordRepository energyRecordRepository;
     private final TravelRecordRepository travelRecordRepository;
     private final ServerUsageRecordRepository serverUsageRecordRepository;
 
     public EmissionsSummaryDTO getEmissionsSummary(Long organizationId, LocalDate from, LocalDate to) {
+        organizationService.verifyAccessToOrganization(organizationId);
         if (!organizationRepository.existsById(organizationId)) {
             throw new ResourceNotFoundException("Organization not found: " + organizationId);
         }
@@ -71,6 +73,7 @@ public class AnalyticsService {
     }
 
     public List<MonthlyTrendDTO> getMonthlyTrends(Long organizationId, int year) {
+        organizationService.verifyAccessToOrganization(organizationId);
         if (!organizationRepository.existsById(organizationId)) {
             throw new ResourceNotFoundException("Organization not found: " + organizationId);
         }

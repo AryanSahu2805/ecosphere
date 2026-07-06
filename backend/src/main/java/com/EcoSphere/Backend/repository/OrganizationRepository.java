@@ -3,6 +3,7 @@ package com.EcoSphere.Backend.repository;
 import com.EcoSphere.Backend.model.Organization;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface OrganizationRepository extends JpaRepository<Organization, Long> {
@@ -10,4 +11,6 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
     boolean existsByName(String name);
 
     Optional<Organization> findByName(String name);
+
+    List<Organization> findByCreatedByUserId(Long userId);
 }

@@ -19,6 +19,7 @@ public class AlertService {
 
     private final AlertRepository alertRepository;
     private final UserRepository userRepository;
+    private final OrganizationService organizationService;
 
     public void createAlertIfNotExists(Long organizationId, Long goalId, String alertType,
                                         String message, String severity) {
@@ -41,12 +42,14 @@ public class AlertService {
     }
 
     public List<AlertResponseDTO> getAlertsByOrganization(Long organizationId) {
+        organizationService.verifyAccessToOrganization(organizationId);
         return alertRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId).stream()
                 .map(this::mapToDTO)
                 .toList();
     }
 
     public List<AlertResponseDTO> getUnresolvedAlerts(Long organizationId) {
+        organizationService.verifyAccessToOrganization(organizationId);
         return alertRepository.findByOrganizationIdAndResolved(organizationId, false).stream()
                 .map(this::mapToDTO)
                 .toList();

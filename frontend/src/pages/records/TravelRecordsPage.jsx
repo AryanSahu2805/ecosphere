@@ -12,6 +12,7 @@ import { PageSkeleton } from '../../components/ui/SkeletonLoader';
 import { tokens } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import { travelRecordsApi } from '../../api/carbonRecordsApi';
+import authApi from '../../api/authApi';
 import organizationsApi from '../../api/organizationsApi';
 import locationsApi from '../../api/locationsApi';
 import departmentsApi from '../../api/departmentsApi';
@@ -28,6 +29,7 @@ export default function TravelRecordsPage() {
   const [organizations, setOrganizations] = useState([]);
   const [selectedOrgId, setSelectedOrgId] = useState(null);
   const [deptMap, setDeptMap]             = useState({});
+  const [userMap, setUserMap]             = useState({});
 
   const [open, setOpen]       = useState(false);
   const [selected, setSelected] = useState(null);
@@ -57,6 +59,7 @@ export default function TravelRecordsPage() {
     if (!selectedOrgId) return;
     loadRecords();
     loadDeptMap();
+    loadUserMap();
   }, [selectedOrgId]);
 
   const loadRecords = async () => {
@@ -83,6 +86,15 @@ export default function TravelRecordsPage() {
       allDepts.flat().forEach(d => { map[d.id] = d; });
       setDeptMap(map);
     } catch {}
+  };
+
+  const loadUserMap = async () => {
+    try {
+      const res = await authApi.getAllUsers();
+      const map = {};
+      res.data.forEach(u => { map[u.id] = u.name; });
+      setUserMap(map);
+    } catch { /* non-critical */ }
   };
 
   const openCreate = () => { setSelected(null); setForm({ departmentId: '', distanceKm: '', transportMode: 'CAR', recordedDate: '', notes: '' }); setFormErr(''); setOpen(true); };
@@ -120,6 +132,15 @@ export default function TravelRecordsPage() {
     { key: 'distanceKm', label: 'Distance', render: v => <Box sx={{ fontSize: 14, fontWeight: 600 }}>{Number(v).toLocaleString()} <Box component="span" sx={{ fontSize: 12, color: tokens.colors.textSec }}>km</Box></Box> },
     { key: 'co2Emission', label: 'CO₂ Emission', render: v => +v > 0 ? <Box sx={{ fontSize: 14, fontWeight: 700, color: tokens.colors.primary }}>{Number(v).toFixed(4)} <Box component="span" sx={{ fontSize: 12, color: tokens.colors.textSec }}>kg</Box></Box> : <Box sx={{ fontSize: 14, color: tokens.colors.textSec }}>0.0000 <Box component="span" sx={{ fontSize: 12, color: tokens.colors.textMuted }}>kg</Box></Box> },
     { key: 'recordedDate', label: 'Date', render: v => <Box sx={{ fontSize: 13, color: tokens.colors.textSec }}>{v}</Box> },
+    {
+      key: 'userId', label: 'Logged By', sortable: false,
+      render: v => (
+        <Box>
+          <Typography variant="body2" fontWeight={500}>{userMap[v] || 'Unknown'}</Typography>
+          <Typography variant="caption" color="text.secondary">ID: {v}</Typography>
+        </Box>
+      ),
+    },
     {
       key: 'id', label: '', align: 'right', sortable: false,
       render: (_, rec) => (

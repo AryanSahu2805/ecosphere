@@ -34,6 +34,9 @@ public class Organization {
 
     private String industry;
 
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;

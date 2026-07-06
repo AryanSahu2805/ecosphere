@@ -11,6 +11,7 @@ import com.EcoSphere.Backend.model.User;
 import com.EcoSphere.Backend.repository.OrganizationRepository;
 import com.EcoSphere.Backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -65,6 +66,20 @@ public class UserService {
                 .toList();
     }
 
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found: " + userId));
+
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (user.getEmail().equals(currentEmail)) {
+            throw new DuplicateResourceException(
+                    "You cannot delete your own account.");
+        }
+
+        userRepository.delete(user);
+    }
+
     public UserResponseDTO registerCompany(CompanyRegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException(
@@ -82,10 +97,14 @@ public class UserService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.ADMIN)
-                .organizationId(savedOrg.getId())
+                .organizationId(null)
                 .build();
 
         User saved = userRepository.save(user);
+
+        // Stamp the newly created org with this admin as owner
+        savedOrg.setCreatedByUserId(saved.getId());
+        organizationRepository.save(savedOrg);
 
         return UserResponseDTO.builder()
                 .id(saved.getId())

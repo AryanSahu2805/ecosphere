@@ -11,6 +11,8 @@ const authApi = {
     axiosInstance.get('/auth/users'),
   assignOrganization: (userId, orgId) =>
     axiosInstance.put(`/auth/users/${userId}/organization/${orgId}`),
+  deleteUser: (userId) =>
+    axiosInstance.delete(`/auth/users/${userId}`),
 };
 
 export default authApi;

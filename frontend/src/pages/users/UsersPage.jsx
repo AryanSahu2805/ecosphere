@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react';
 import {
   Box, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, Snackbar, IconButton, Tooltip,
-  Select, MenuItem, FormControl, Typography,
+  Select, MenuItem, FormControl, Typography, Chip,
   CircularProgress,
 } from '@mui/material';
-import { BusinessOutlined, EmailOutlined, SendOutlined } from '@mui/icons-material';
+import { BusinessOutlined, EmailOutlined, SendOutlined, Delete } from '@mui/icons-material';
 import { DataTable, PageShell } from '../../components/ui';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { PageSkeleton } from '../../components/ui/SkeletonLoader';
 import { tokens } from '../../theme/theme';
 import authApi from '../../api/authApi';
+import organizationsApi from '../../api/organizationsApi';
 import invitationsApi from '../../api/invitationsApi';
 
 const ROLE_BADGE_MAP = {
@@ -25,10 +26,14 @@ const Label = ({ children }) => (
   </Box>
 );
 
+const EMPTY_INVITE = { invitedEmail: '', role: 'SUSTAINABILITY_MANAGER', organizationId: '' };
+
 export default function UsersPage() {
-  const [users, setUsers]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
+  const [users, setUsers]             = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [orgMap, setOrgMap]           = useState({});
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState('');
 
   // Assign org dialog
   const [assignOpen, setAssignOpen] = useState(false);
@@ -37,28 +42,38 @@ export default function UsersPage() {
   const [saving, setSaving]         = useState(false);
   const [assignErr, setAssignErr]   = useState('');
 
+  // Delete confirm
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, user: null });
+
   // Invite dialog
-  const [inviteDialog, setInviteDialog] = useState(false);
-  const [inviteForm, setInviteForm]     = useState({ invitedEmail: '', role: 'SUSTAINABILITY_MANAGER' });
+  const [inviteDialog, setInviteDialog]   = useState(false);
+  const [inviteForm, setInviteForm]       = useState(EMPTY_INVITE);
   const [inviteSending, setInviteSending] = useState(false);
-  const [inviteError, setInviteError]   = useState('');
+  const [inviteError, setInviteError]     = useState('');
 
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const showSnackbar = (message, severity = 'success') =>
     setSnack({ open: true, message, severity });
 
-  const load = async () => {
+  const loadUsers = async () => {
     try {
       setLoading(true);
-      const res = await authApi.getAllUsers();
-      setUsers(res.data);
+      const [usersRes, orgsRes] = await Promise.all([
+        authApi.getAllUsers(),
+        organizationsApi.getAll(),
+      ]);
+      setUsers(usersRes.data);
+      setOrganizations(orgsRes.data);
+      const map = {};
+      orgsRes.data.forEach(o => { map[o.id] = o.name; });
+      setOrgMap(map);
     } catch { setError('Failed to load users.'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadUsers(); }, []);
 
-  // Assign org handlers
+  // Assign org
   const openAssign = (user) => {
     setTarget(user);
     setOrgId(user.organizationId ? String(user.organizationId) : '');
@@ -76,25 +91,44 @@ export default function UsersPage() {
       await authApi.assignOrganization(targetUser.id, +orgId);
       setAssignOpen(false);
       showSnackbar(`Organization assigned to ${targetUser.name}.`);
-      load();
+      loadUsers();
     } catch (err) {
       setAssignErr(err.response?.data?.error || 'Failed to assign organization.');
     } finally { setSaving(false); }
   };
 
-  // Invite handlers
+  // Invite
+  const closeInviteDialog = () => {
+    setInviteDialog(false);
+    setInviteError('');
+    setInviteForm(EMPTY_INVITE);
+  };
+
   const handleSendInvite = async () => {
     if (!inviteForm.invitedEmail) { setInviteError('Email is required.'); return; }
+    if (!inviteForm.organizationId) { setInviteError('Please select an organization.'); return; }
     setInviteSending(true);
     setInviteError('');
     try {
       await invitationsApi.send(inviteForm);
-      setInviteDialog(false);
-      setInviteForm({ invitedEmail: '', role: 'SUSTAINABILITY_MANAGER' });
+      closeInviteDialog();
       showSnackbar('Invitation sent to ' + inviteForm.invitedEmail);
     } catch (err) {
       setInviteError(err.response?.data?.error || 'Failed to send invitation.');
     } finally { setInviteSending(false); }
+  };
+
+  // Delete user
+  const handleDeleteUser = async () => {
+    try {
+      await authApi.deleteUser(deleteConfirm.user.id);
+      setDeleteConfirm({ open: false, user: null });
+      showSnackbar('User removed successfully.');
+      loadUsers();
+    } catch (err) {
+      setDeleteConfirm({ open: false, user: null });
+      showSnackbar(err.response?.data?.error || 'Failed to remove user.', 'error');
+    }
   };
 
   const columns = [
@@ -123,14 +157,19 @@ export default function UsersPage() {
       },
     },
     {
-      key: 'organizationId', label: 'Organization ID',
-      render: v => v ? (
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: tokens.colors.primaryLt, borderRadius: 2, px: 1.5, py: 0.5 }}>
-          <Box sx={{ fontSize: 12, fontWeight: 700, color: tokens.colors.primaryDk }}>Org #{v}</Box>
-        </Box>
-      ) : (
-        <Box sx={{ fontSize: 13, color: tokens.colors.textMuted, fontStyle: 'italic' }}>Unassigned</Box>
-      ),
+      key: 'organizationId', label: 'Organization',
+      render: (v, row) => {
+        if (row.role === 'ADMIN') {
+          return (
+            <Chip label="All Organizations" size="small"
+              sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontWeight: 600, fontSize: '0.75rem' }} />
+          );
+        }
+        if (v) {
+          return <Chip label={orgMap[v] || `Org #${v}`} size="small" color="primary" variant="outlined" />;
+        }
+        return <Typography variant="caption" color="text.secondary" fontStyle="italic">Unassigned</Typography>;
+      },
     },
     {
       key: 'createdAt', label: 'Joined',
@@ -138,15 +177,29 @@ export default function UsersPage() {
     },
     {
       key: 'id', label: 'Actions', align: 'right', sortable: false,
-      render: (_, user) => (
-        <Tooltip title="Assign to organization">
-          <IconButton
-            size="small" onClick={() => openAssign(user)} aria-label={`Assign organization to ${user.name}`}
-            sx={{ '&:hover': { bgcolor: tokens.colors.primaryLt, color: tokens.colors.primary } }}>
-            <BusinessOutlined sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-      ),
+      render: (_, user) => {
+        // Admin rows have no action buttons
+        if (user.role === 'ADMIN') return null;
+        return (
+          <Box display="flex" gap={0.5} justifyContent="flex-end">
+            <Tooltip title="Assign to organization">
+              <IconButton size="small" onClick={() => openAssign(user)}
+                aria-label={`Assign organization to ${user.name}`}
+                sx={{ '&:hover': { bgcolor: tokens.colors.primaryLt, color: tokens.colors.primary } }}>
+                <BusinessOutlined sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Remove user">
+              <IconButton size="small" color="error"
+                aria-label={`Delete ${user.name}`}
+                onClick={() => setDeleteConfirm({ open: true, user })}
+                sx={{ '&:hover': { bgcolor: '#FEF2F2' } }}>
+                <Delete sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
   ];
 
@@ -159,7 +212,8 @@ export default function UsersPage() {
         subtitle="View all platform users, assign organizations, and invite new team members."
         breadcrumbs={[{ label: 'Organization' }]}
         actions={
-          <Button variant="contained" startIcon={<EmailOutlined />} onClick={() => { setInviteError(''); setInviteDialog(true); }}>
+          <Button variant="contained" startIcon={<EmailOutlined />}
+            onClick={() => { setInviteError(''); setInviteForm(EMPTY_INVITE); setInviteDialog(true); }}>
             Invite Member
           </Button>
         }
@@ -193,8 +247,30 @@ export default function UsersPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Delete confirm dialog */}
+      <Dialog open={deleteConfirm.open} onClose={() => setDeleteConfirm({ open: false, user: null })} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: 'error.main' }}>Remove User?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" mb={2}>
+            Are you sure you want to remove{' '}
+            <strong>{deleteConfirm.user?.name}</strong>{' '}
+            ({deleteConfirm.user?.email})?
+          </Typography>
+          <Alert severity="info">
+            Their carbon records and audit log entries will be preserved.
+            Only their login access will be removed.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm({ open: false, user: null })}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteUser}>
+            Remove User
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Invite dialog */}
-      <Dialog open={inviteDialog} onClose={() => setInviteDialog(false)} maxWidth="sm" fullWidth aria-labelledby="invite-dialog-title">
+      <Dialog open={inviteDialog} onClose={closeInviteDialog} maxWidth="sm" fullWidth aria-labelledby="invite-dialog-title">
         <DialogTitle id="invite-dialog-title">Invite Team Member</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -204,17 +280,26 @@ export default function UsersPage() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Box>
               <Label>Email Address</Label>
-              <TextField
-                fullWidth type="email" value={inviteForm.invitedEmail}
+              <TextField fullWidth type="email" value={inviteForm.invitedEmail}
                 onChange={e => setInviteForm(p => ({ ...p, invitedEmail: e.target.value }))}
-                placeholder="colleague@company.com"
-              />
+                placeholder="colleague@company.com" />
+            </Box>
+            <Box>
+              <Label>Organization *</Label>
+              <FormControl fullWidth size="small">
+                <Select value={inviteForm.organizationId} displayEmpty
+                  onChange={e => setInviteForm(p => ({ ...p, organizationId: e.target.value }))}>
+                  <MenuItem value="" disabled><em>Select organization</em></MenuItem>
+                  {organizations.map(org => (
+                    <MenuItem key={org.id} value={org.id}>{org.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Box>
             <Box>
               <Label>Role</Label>
               <FormControl fullWidth>
-                <Select
-                  value={inviteForm.role}
+                <Select value={inviteForm.role}
                   onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}>
                   <MenuItem value="SUSTAINABILITY_MANAGER">
                     <Box>
@@ -231,22 +316,18 @@ export default function UsersPage() {
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{
-              mt: 1, p: 1.5, bgcolor: '#F0FDF4',
-              borderRadius: 2, border: '1px solid #BBF7D0',
-            }}>
+            <Box sx={{ mt: 1, p: 1.5, bgcolor: '#F0FDF4', borderRadius: 2, border: '1px solid #BBF7D0' }}>
               <Typography variant="caption" color="success.dark">
                 This person will be invited to join{' '}
-                <strong>your organization</strong>. They will have access to all
-                locations and departments within that organization.
+                <strong>{inviteForm.organizationId ? orgMap[inviteForm.organizationId] : 'the selected organization'}</strong>.
+                They will have access to all locations and departments within that organization.
               </Typography>
             </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setInviteDialog(false)}>Cancel</Button>
-          <Button
-            variant="contained" startIcon={inviteSending ? null : <SendOutlined />}
+          <Button variant="outlined" onClick={closeInviteDialog}>Cancel</Button>
+          <Button variant="contained" startIcon={inviteSending ? null : <SendOutlined />}
             disabled={inviteSending} onClick={handleSendInvite}>
             {inviteSending ? <CircularProgress size={18} color="inherit" /> : 'Send Invitation'}
           </Button>

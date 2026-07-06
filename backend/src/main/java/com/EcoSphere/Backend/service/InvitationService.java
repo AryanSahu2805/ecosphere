@@ -37,9 +37,20 @@ public class InvitationService {
         User admin = userRepository.findByEmail(adminEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
 
+        Long orgId = request.getOrganizationId();
+
         Organization org = organizationRepository
-                .findById(admin.getOrganizationId())
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+                .findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Organization not found: " + orgId));
+
+        // Admin can invite to any org; non-admins can only invite to their own
+        if (!admin.getRole().equals(Role.ADMIN)) {
+            if (!orgId.equals(admin.getOrganizationId())) {
+                throw new DuplicateResourceException(
+                        "You can only invite members to your own organization.");
+            }
+        }
 
         if (userRepository.existsByEmail(request.getInvitedEmail())) {
             throw new DuplicateResourceException(
@@ -64,7 +75,7 @@ public class InvitationService {
                 .token(token)
                 .invitedEmail(request.getInvitedEmail())
                 .role(request.getRole())
-                .organizationId(admin.getOrganizationId())
+                .organizationId(orgId)
                 .invitedByUserId(admin.getId())
                 .accepted(false)
                 .expiresAt(LocalDateTime.now().plusHours(48))

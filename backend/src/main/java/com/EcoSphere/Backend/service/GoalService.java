@@ -40,6 +40,7 @@ public class GoalService {
     private final ServerUsageRecordRepository serverUsageRecordRepository;
     private final UserRepository userRepository;
     private final AlertService alertService;
+    private final OrganizationService organizationService;
 
     public GoalResponseDTO createGoal(CreateGoalRequestDTO request) {
         if (!organizationRepository.existsById(request.getOrganizationId())) {
@@ -79,6 +80,7 @@ public class GoalService {
     }
 
     public List<GoalResponseDTO> getGoalsByOrganization(Long organizationId) {
+        organizationService.verifyAccessToOrganization(organizationId);
         if (!organizationRepository.existsById(organizationId)) {
             throw new ResourceNotFoundException("Organization not found: " + organizationId);
         }
