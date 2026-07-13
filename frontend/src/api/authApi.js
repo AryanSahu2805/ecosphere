@@ -13,6 +13,8 @@ const authApi = {
     axiosInstance.put(`/auth/users/${userId}/organization/${orgId}`),
   deleteUser: (userId) =>
     axiosInstance.delete(`/auth/users/${userId}`),
+  getOnboardingStatus: () =>
+    axiosInstance.get('/auth/onboarding-status'),
 };
 
 export default authApi;

@@ -13,9 +13,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.TextStyle;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +38,10 @@ public class AnalyticsService {
 
     public EmissionsSummaryDTO getEmissionsSummary(Long organizationId, LocalDate from, LocalDate to) {
         organizationService.verifyAccessToOrganization(organizationId);
+        return getEmissionsSummaryInternal(organizationId, from, to);
+    }
+
+    public EmissionsSummaryDTO getEmissionsSummaryInternal(Long organizationId, LocalDate from, LocalDate to) {
         if (!organizationRepository.existsById(organizationId)) {
             throw new ResourceNotFoundException("Organization not found: " + organizationId);
         }
@@ -74,19 +80,19 @@ public class AnalyticsService {
 
     public List<MonthlyTrendDTO> getMonthlyTrends(Long organizationId, int year) {
         organizationService.verifyAccessToOrganization(organizationId);
+        return getMonthlyTrendsInternal(organizationId, year);
+    }
+
+    public List<MonthlyTrendDTO> getMonthlyTrendsInternal(Long organizationId, int year) {
         if (!organizationRepository.existsById(organizationId)) {
             throw new ResourceNotFoundException("Organization not found: " + organizationId);
         }
 
         List<Long> locationIds = locationRepository.findIdsByOrganizationId(organizationId);
-        if (locationIds.isEmpty()) {
-            return List.of();
-        }
+        if (locationIds.isEmpty()) return List.of();
 
         List<Long> departmentIds = departmentRepository.findIdsByLocationIdIn(locationIds);
-        if (departmentIds.isEmpty()) {
-            return List.of();
-        }
+        if (departmentIds.isEmpty()) return List.of();
 
         Map<Integer, BigDecimal> energyByMonth = toMonthMap(
                 energyRecordRepository.monthlyEmissionsByDepartmentIds(departmentIds, year));
@@ -96,32 +102,59 @@ public class AnalyticsService {
                 serverUsageRecordRepository.monthlyEmissionsByDepartmentIds(departmentIds, year));
 
         List<MonthlyTrendDTO> trends = new ArrayList<>();
-
         for (int month = 1; month <= 12; month++) {
             BigDecimal energy = energyByMonth.getOrDefault(month, BigDecimal.ZERO);
             BigDecimal travel = travelByMonth.getOrDefault(month, BigDecimal.ZERO);
             BigDecimal server = serverByMonth.getOrDefault(month, BigDecimal.ZERO);
 
-            boolean hasData = energy.compareTo(BigDecimal.ZERO) > 0
-                    || travel.compareTo(BigDecimal.ZERO) > 0
-                    || server.compareTo(BigDecimal.ZERO) > 0;
-
-            if (!hasData) {
-                continue;
-            }
+            if (energy.compareTo(BigDecimal.ZERO) == 0
+                    && travel.compareTo(BigDecimal.ZERO) == 0
+                    && server.compareTo(BigDecimal.ZERO) == 0) continue;
 
             trends.add(MonthlyTrendDTO.builder()
-                    .year(year)
-                    .month(month)
+                    .year(year).month(month)
                     .monthName(Month.of(month).getDisplayName(TextStyle.FULL, Locale.ENGLISH))
-                    .energyEmissions(energy)
-                    .travelEmissions(travel)
-                    .serverEmissions(server)
+                    .energyEmissions(energy).travelEmissions(travel).serverEmissions(server)
                     .totalEmissions(energy.add(travel).add(server))
                     .build());
         }
-
         return trends;
+    }
+
+    public BigDecimal getAverageMonthlyEmissions(
+            Long organizationId,
+            String targetMetric,
+            LocalDate periodStart,
+            LocalDate periodEnd) {
+
+        List<Long> locationIds = locationRepository.findIdsByOrganizationId(organizationId);
+        if (locationIds.isEmpty()) return BigDecimal.ZERO;
+
+        List<Long> deptIds = departmentRepository.findIdsByLocationIdIn(locationIds);
+        if (deptIds.isEmpty()) return BigDecimal.ZERO;
+
+        BigDecimal total;
+        switch (targetMetric) {
+            case "ENERGY_EMISSIONS":
+                total = energyRecordRepository.sumCo2ByDepartmentIds(deptIds, periodStart, periodEnd);
+                break;
+            case "TRAVEL_EMISSIONS":
+                total = travelRecordRepository.sumCo2ByDepartmentIds(deptIds, periodStart, periodEnd);
+                break;
+            case "SERVER_EMISSIONS":
+                total = serverUsageRecordRepository.sumCo2ByDepartmentIds(deptIds, periodStart, periodEnd);
+                break;
+            default:
+                total = energyRecordRepository.sumCo2ByDepartmentIds(deptIds, periodStart, periodEnd)
+                        .add(travelRecordRepository.sumCo2ByDepartmentIds(deptIds, periodStart, periodEnd))
+                        .add(serverUsageRecordRepository.sumCo2ByDepartmentIds(deptIds, periodStart, periodEnd));
+                break;
+        }
+
+        long months = ChronoUnit.MONTHS.between(periodStart, periodEnd);
+        if (months <= 0) months = 1;
+
+        return total.divide(BigDecimal.valueOf(months), 4, RoundingMode.HALF_UP);
     }
 
     private Map<Integer, BigDecimal> toMonthMap(List<Object[]> rows) {

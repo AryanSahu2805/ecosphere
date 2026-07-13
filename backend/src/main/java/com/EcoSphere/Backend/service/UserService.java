@@ -24,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationRepository organizationRepository;
+    private final EmailService emailService;
 
     public UserResponseDTO registerUser(RegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -92,12 +93,18 @@ public class UserService {
                 .build();
         Organization savedOrg = organizationRepository.save(org);
 
+        String verificationToken =
+                java.util.UUID.randomUUID().toString() +
+                java.util.UUID.randomUUID().toString();
+
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.ADMIN)
                 .organizationId(null)
+                .isVerified(false)
+                .verificationToken(verificationToken)
                 .build();
 
         User saved = userRepository.save(user);
@@ -105,6 +112,11 @@ public class UserService {
         // Stamp the newly created org with this admin as owner
         savedOrg.setCreatedByUserId(saved.getId());
         organizationRepository.save(savedOrg);
+
+        emailService.sendVerificationEmail(
+                saved.getEmail(),
+                saved.getName(),
+                verificationToken);
 
         return UserResponseDTO.builder()
                 .id(saved.getId())

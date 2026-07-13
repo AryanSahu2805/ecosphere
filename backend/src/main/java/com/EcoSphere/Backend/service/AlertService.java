@@ -3,8 +3,11 @@ package com.EcoSphere.Backend.service;
 import com.EcoSphere.Backend.dto.AlertResponseDTO;
 import com.EcoSphere.Backend.exception.ResourceNotFoundException;
 import com.EcoSphere.Backend.model.Alert;
+import com.EcoSphere.Backend.model.Organization;
+import com.EcoSphere.Backend.model.Role;
 import com.EcoSphere.Backend.model.User;
 import com.EcoSphere.Backend.repository.AlertRepository;
+import com.EcoSphere.Backend.repository.OrganizationRepository;
 import com.EcoSphere.Backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +23,9 @@ public class AlertService {
     private final AlertRepository alertRepository;
     private final UserRepository userRepository;
     private final OrganizationService organizationService;
+    private final OrganizationRepository organizationRepository;
+    private final EmailService emailService;
+    private final EmailPreferencesService emailPreferencesService;
 
     public void createAlertIfNotExists(Long organizationId, Long goalId, String alertType,
                                         String message, String severity) {
@@ -39,6 +45,20 @@ public class AlertService {
                 .build();
 
         alertRepository.save(alert);
+
+        // Notify admins via email based on their preferences
+        Organization org = organizationRepository.findById(organizationId).orElse(null);
+        String orgName = org != null ? org.getName() : "Your Organization";
+
+        List<User> admins = userRepository.findByRole(Role.ADMIN);
+        for (User admin : admins) {
+            if (admin.getOrganizationId() != null) continue; // skip non-platform admins
+            if (emailPreferencesService.shouldReceiveAlertEmail(admin.getId(), severity)) {
+                emailService.sendAlertEmail(
+                        admin.getEmail(), admin.getName(), orgName,
+                        alertType, severity, message);
+            }
+        }
     }
 
     public List<AlertResponseDTO> getAlertsByOrganization(Long organizationId) {

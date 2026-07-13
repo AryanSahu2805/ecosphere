@@ -12,10 +12,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -23,46 +22,46 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "sustainability_goals")
+@Table(name = "email_preferences")
 @EntityListeners(AuditingEntityListener.class)
-public class SustainabilityGoal {
+public class EmailPreferences {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "user_id", nullable = false, unique = true)
+    private Long userId;
+
     @Column(name = "organization_id", nullable = false)
     private Long organizationId;
 
-    @Column(name = "target_metric", nullable = false)
-    private String targetMetric;
-
-    @Column(name = "target_value", precision = 10, scale = 4, nullable = false)
-    private BigDecimal targetValue;
-
-    @Column(name = "baseline_value", precision = 10, scale = 4, nullable = false)
-    private BigDecimal baselineValue;
-
-    @Column(name = "baseline_monthly_rate", precision = 10, scale = 4)
-    private BigDecimal baselineMonthlyRate;
+    @Builder.Default
+    @Column(name = "alert_level", nullable = false)
+    private String alertLevel = "ALL";
 
     @Builder.Default
-    @Column(name = "goal_type")
-    private String goalType = "RATE_REDUCTION";
-
-    @Column(nullable = false)
-    private LocalDate deadline;
+    @Column(name = "report_frequency", nullable = false)
+    private String reportFrequency = "WEEKLY";
 
     @Builder.Default
-    @Column(nullable = false)
-    private String status = "ACTIVE";
+    @Column(name = "reports_enabled", nullable = false,
+            columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean reportsEnabled = true;
 
-    private String description;
+    @Builder.Default
+    @Column(name = "alerts_enabled", nullable = false,
+            columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean alertsEnabled = true;
 
-    @Column(name = "created_by", nullable = false)
-    private Long createdBy;
+    @Column(name = "last_report_sent_at")
+    private LocalDateTime lastReportSentAt;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

@@ -13,6 +13,8 @@ public interface ServerUsageRecordRepository extends JpaRepository<ServerUsageRe
 
     List<ServerUsageRecord> findByDepartmentId(Long departmentId);
 
+    List<ServerUsageRecord> findByDepartmentIdIn(List<Long> departmentIds);
+
     List<ServerUsageRecord> findByUserId(Long userId);
 
     boolean existsByDepartmentId(Long departmentId);

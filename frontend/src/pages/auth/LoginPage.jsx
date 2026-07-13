@@ -81,7 +81,13 @@ export default function LoginPage() {
       login(token, { name, email, role, organizationId });
       navigate('/app/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Invalid email or password.');
+      const errorCode = err.response?.data?.code;
+      const errorMsg  = err.response?.data?.error;
+      if (errorCode === 'EMAIL_NOT_VERIFIED') {
+        setError('Please verify your email address before signing in. Check your inbox for a message from EcoSphere.');
+      } else {
+        setError(errorMsg || 'Invalid email or password.');
+      }
     } finally { setLoading(false); }
   };
 

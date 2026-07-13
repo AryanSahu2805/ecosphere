@@ -59,7 +59,7 @@ public class ReportService {
             throw new ResourceNotFoundException("Organization not found: " + organizationId);
         }
 
-        EmissionsSummaryDTO summary = analyticsService.getEmissionsSummary(organizationId, from, to);
+        EmissionsSummaryDTO summary = analyticsService.getEmissionsSummaryInternal(organizationId, from, to);
         String orgName = organizationRepository.findById(organizationId).get().getName();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -147,8 +147,8 @@ public class ReportService {
         }
 
         String orgName = organizationRepository.findById(organizationId).get().getName();
-        EmissionsSummaryDTO summary = analyticsService.getEmissionsSummary(organizationId, from, to);
-        List<MonthlyTrendDTO> monthlyTrends = analyticsService.getMonthlyTrends(organizationId, LocalDate.now().getYear());
+        EmissionsSummaryDTO summary = analyticsService.getEmissionsSummaryInternal(organizationId, from, to);
+        List<MonthlyTrendDTO> monthlyTrends = analyticsService.getMonthlyTrendsInternal(organizationId, LocalDate.now().getYear());
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document doc = new Document(PageSize.A4);

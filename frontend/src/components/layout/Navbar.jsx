@@ -4,12 +4,14 @@ import {
   TextField, Avatar, Menu, MenuItem,
   ListItemIcon, ListItemText, Divider, Chip, Badge,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Alert,
+  Button, Alert, Select, CircularProgress,
 } from '@mui/material';
+import emailPreferencesApi from '../../api/emailPreferencesApi';
 import {
   MenuRounded,
   NotificationsOutlined, PersonOutlined,
   LogoutOutlined, SettingsOutlined, KeyboardArrowDownRounded,
+  CalendarMonth, SaveOutlined, Email,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -30,7 +32,7 @@ const PAGE_TITLES = {
 };
 
 export default function Navbar({ onMenuClick }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -39,6 +41,10 @@ export default function Navbar({ onMenuClick }) {
   const [editName,    setEditName]    = useState('');
   const [nameSuccess, setNameSuccess] = useState(false);
   const [settingsOpen,setSettingsOpen]= useState(false);
+  const [prefs,        setPrefs]        = useState(null);
+  const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsSaving,  setPrefsSaving]  = useState(false);
+  const [prefsSaved,   setPrefsSaved]   = useState(false);
 
   const page = PAGE_TITLES[pathname] || { title: 'EcoSphere', breadcrumb: null };
   const initials = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
@@ -55,6 +61,25 @@ export default function Navbar({ onMenuClick }) {
   const openSettings = () => {
     setAnchorEl(null);
     setSettingsOpen(true);
+    if (isAdmin()) {
+      setPrefsLoading(true);
+      emailPreferencesApi.get()
+        .then(res => setPrefs(res.data))
+        .catch(() => {})
+        .finally(() => setPrefsLoading(false));
+    }
+  };
+
+  const handleSavePrefs = async () => {
+    if (!prefs) return;
+    try {
+      setPrefsSaving(true);
+      const res = await emailPreferencesApi.update(prefs);
+      setPrefs(res.data);
+      setPrefsSaved(true);
+      setTimeout(() => setPrefsSaved(false), 2500);
+    } catch { /* non-fatal */ }
+    finally { setPrefsSaving(false); }
   };
 
   return (
@@ -224,6 +249,134 @@ export default function Navbar({ onMenuClick }) {
               </Button>
             </Box>
           </Box>
+
+          {/* Email Notifications — Admin only */}
+          {isAdmin() && prefs && (
+            <>
+              {/* Section header */}
+              <Box sx={{ mt: 3, mb: 2.5 }}>
+                <Box display="flex" alignItems="center" gap={1.5} mb={0.5}>
+                  <Box sx={{ width: 32, height: 32, bgcolor: '#F0FDF4', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Email sx={{ fontSize: 18, color: 'success.main' }} />
+                  </Box>
+                  <Typography variant="subtitle1" fontWeight={700} color="text.primary">
+                    Email Notifications
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ pl: 0.5 }}>
+                  Configure when EcoSphere sends alerts and sustainability reports to your inbox.
+                </Typography>
+              </Box>
+
+              {prefsSaved && (
+                <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
+                  <Typography variant="body2" fontWeight={600}>Preferences saved successfully</Typography>
+                  <Typography variant="caption" color="text.secondary">Updated just now</Typography>
+                </Alert>
+              )}
+
+              <Box sx={{ border: '1px solid #E2E8F0', borderRadius: 2, overflow: 'hidden' }}>
+
+                {/* Alert level */}
+                <Box sx={{ p: 3 }}>
+                  <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                    <NotificationsOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
+                    <Typography variant="body2" fontWeight={600} color="text.primary">Alert Email Level</Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                    Which alert severities trigger an email notification
+                  </Typography>
+                  <Select fullWidth size="small" value={prefs.alertLevel}
+                    onChange={e => setPrefs(p => ({ ...p, alertLevel: e.target.value, alertsEnabled: e.target.value !== 'NONE' }))}
+                    sx={{ borderRadius: '10px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E2E8F0', borderRadius: '10px' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' }, '& .MuiSelect-select': { py: 1.2 } }}
+                    renderValue={v => <Typography variant="body2" fontWeight={500}>{{ ALL: 'All Alerts', HIGH: 'High Priority Only', MEDIUM: 'Medium and Above', NONE: 'No Alert Emails' }[v] || v}</Typography>}>
+                    {[
+                      { value: 'ALL',    label: 'All Alerts',          desc: 'High, Medium and all others' },
+                      { value: 'HIGH',   label: 'High Priority Only',  desc: 'Critical alerts only — missed goals etc.' },
+                      { value: 'MEDIUM', label: 'Medium and Above',    desc: 'High + Medium severity alerts' },
+                      { value: 'NONE',   label: 'No Alert Emails',     desc: 'Disable all alert email notifications' },
+                    ].map(opt => (
+                      <MenuItem key={opt.value} value={opt.value} sx={{ py: 1.2 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+                          <Typography variant="body2" fontWeight={500}>{opt.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">{opt.desc}</Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+
+                <Divider />
+
+                {/* Report frequency */}
+                <Box sx={{ p: 3 }}>
+                  <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                    <CalendarMonth sx={{ fontSize: 18, color: 'text.secondary' }} />
+                    <Typography variant="body2" fontWeight={600} color="text.primary">Scheduled Reports</Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                    How often to receive PDF + CSV reports via email
+                  </Typography>
+                  <Select fullWidth size="small" value={prefs.reportFrequency}
+                    onChange={e => setPrefs(p => ({ ...p, reportFrequency: e.target.value, reportsEnabled: e.target.value !== 'NONE' }))}
+                    sx={{ borderRadius: '10px', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E2E8F0', borderRadius: '10px' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#CBD5E1' }, '& .MuiSelect-select': { py: 1.2 } }}
+                    renderValue={v => <Typography variant="body2" fontWeight={500}>{{ DAILY: 'Daily — every morning at 8 AM', WEEKLY: 'Weekly — every Monday at 8 AM', MONTHLY: 'Monthly — 1st of each month', NONE: 'Disabled' }[v] || v}</Typography>}>
+                    {[
+                      { value: 'DAILY',   label: 'Daily',    desc: 'Every morning at 8:00 AM' },
+                      { value: 'WEEKLY',  label: 'Weekly',   desc: 'Every Monday at 8:00 AM' },
+                      { value: 'MONTHLY', label: 'Monthly',  desc: '1st of each month at 8:00 AM' },
+                      { value: 'NONE',    label: 'Disabled', desc: 'No scheduled report emails' },
+                    ].map(opt => (
+                      <MenuItem key={opt.value} value={opt.value} sx={{ py: 1.2 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+                          <Typography variant="body2" fontWeight={500}>{opt.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">{opt.desc}</Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+
+                <Divider />
+
+                {/* Live preview summary */}
+                <Box sx={{ p: 3, bgcolor: '#F8FAFC' }}>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" display="block"
+                    sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1.5 }}>
+                    Current Schedule
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: prefs.alertsEnabled ? '#16A34A' : '#94A3B8', flexShrink: 0 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        <b>Alerts: </b>
+                        {prefs.alertLevel === 'ALL' ? 'All severity levels' : prefs.alertLevel === 'HIGH' ? 'High priority only' : prefs.alertLevel === 'MEDIUM' ? 'Medium and above' : 'Disabled'}
+                      </Typography>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: prefs.reportsEnabled ? '#16A34A' : '#94A3B8', flexShrink: 0 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        <b>Reports: </b>
+                        {prefs.reportFrequency === 'DAILY' ? 'Every day at 8:00 AM' : prefs.reportFrequency === 'WEEKLY' ? 'Every Monday at 8:00 AM' : prefs.reportFrequency === 'MONTHLY' ? '1st of each month' : 'Disabled'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Divider />
+
+                {/* Save button */}
+                <Box sx={{ p: 3 }}>
+                  <Button variant="contained" fullWidth onClick={handleSavePrefs} disabled={prefsSaving}
+                    startIcon={prefsSaving ? null : <SaveOutlined />}
+                    sx={{ height: 48, borderRadius: '10px', fontWeight: 600, fontSize: '0.875rem', background: 'linear-gradient(135deg, #16A34A, #0D9488)', boxShadow: 'none', '&:hover': { background: 'linear-gradient(135deg, #15803D, #0F766E)', boxShadow: '0 4px 12px rgba(22,163,74,0.3)' } }}>
+                    {prefsSaving ? <CircularProgress size={20} color="inherit" /> : 'Save Preferences'}
+                  </Button>
+                </Box>
+
+              </Box>
+            </>
+          )}
 
           {/* Admin quick links */}
           {user?.role === 'ADMIN' && (

@@ -25,31 +25,30 @@ function Sparkline({ data, color }) {
 function renderTrend(trend) {
   if (trend === null || trend === undefined) {
     return (
-      <Typography variant="caption" color="text.secondary">No data yet</Typography>
+      <Typography variant="caption" sx={{ color: '#64748B' }}>No data yet</Typography>
     );
   }
   if (trend.direction === 'new') {
     return (
-      <Typography variant="caption" color="error.main" fontWeight={600}>
+      <Typography variant="caption" sx={{ color: '#D97706', fontWeight: 600 }}>
         ↑ New this month
       </Typography>
     );
   }
   if (trend.direction === 'neutral') {
     return (
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: '#64748B' }}>
         → 0% vs last month
       </Typography>
     );
   }
   const isUp = trend.direction === 'up';
+  const color = isUp ? '#DC2626' : '#16A34A';
+  const label = isUp
+    ? `↑ +${Math.abs(trend.percent)}% vs last month`
+    : `↓ ${Math.abs(trend.percent)}% vs last month`;
   return (
-    <Box display="flex" alignItems="center" gap={0.5}>
-      <Typography variant="caption" color={isUp ? 'error.main' : 'success.main'} fontWeight={600}>
-        {isUp ? '↑' : '↓'} {Math.abs(trend.percent)}%
-      </Typography>
-      <Typography variant="caption" color="text.secondary">vs last month</Typography>
-    </Box>
+    <Typography variant="caption" sx={{ color, fontWeight: 600 }}>{label}</Typography>
   );
 }
 

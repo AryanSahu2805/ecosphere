@@ -13,6 +13,8 @@ public interface EnergyRecordRepository extends JpaRepository<EnergyRecord, Long
 
     List<EnergyRecord> findByDepartmentId(Long departmentId);
 
+    List<EnergyRecord> findByDepartmentIdIn(List<Long> departmentIds);
+
     List<EnergyRecord> findByUserId(Long userId);
 
     boolean existsByDepartmentId(Long departmentId);

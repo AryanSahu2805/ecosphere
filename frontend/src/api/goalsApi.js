@@ -10,6 +10,8 @@ const goalsApi = {
     axiosInstance.post('/goals', data),
   cancel: (id) =>
     axiosInstance.put(`/goals/${id}/cancel`),
+  delete: (id) =>
+    axiosInstance.delete(`/goals/${id}`),
 };
 
 export default goalsApi;

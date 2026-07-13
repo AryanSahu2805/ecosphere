@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Button, Card, CardContent, Typography,
+  Box, Button, Card, CardContent, Chip, Typography,
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Alert, Snackbar, Select, MenuItem,
   FormControl, LinearProgress,
 } from '@mui/material';
 import { AddRounded, TrackChangesOutlined } from '@mui/icons-material';
 import { PageShell, EmptyState } from '../../components/ui';
-import StatusBadge from '../../components/ui/StatusBadge';
 import { PageSkeleton } from '../../components/ui/SkeletonLoader';
 import { tokens } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +26,7 @@ export default function GoalsPage() {
   const [formErr, setFormErr]   = useState('');
   const [saving, setSaving]     = useState(false);
   const [snack, setSnack]       = useState({ open: false, message: '', severity: 'success' });
+  const [deleteGoalDialog, setDeleteGoalDialog] = useState({ open: false, goal: null });
   const { isAdmin, isManager, getOrgId } = useAuth();
 
   const orgId = getOrgId() || 1;
@@ -61,9 +61,24 @@ export default function GoalsPage() {
     finally { setSaving(false); }
   };
 
+  const showSnackbar = (message, severity = 'success') =>
+    setSnack({ open: true, message, severity });
+
   const cancel = async (id) => {
-    try { await goalsApi.cancel(id); load(); setSnack({ open: true, message: 'Goal cancelled.', severity: 'info' }); }
-    catch (err) { setSnack({ open: true, message: err.response?.data?.error || 'Cannot cancel.', severity: 'error' }); }
+    try { await goalsApi.cancel(id); load(); showSnackbar('Goal cancelled.', 'info'); }
+    catch (err) { showSnackbar(err.response?.data?.error || 'Cannot cancel.', 'error'); }
+  };
+
+  const handleDeleteGoal = async () => {
+    try {
+      await goalsApi.delete(deleteGoalDialog.goal.id);
+      setDeleteGoalDialog({ open: false, goal: null });
+      showSnackbar('Goal deleted successfully.');
+      load();
+    } catch (err) {
+      setDeleteGoalDialog({ open: false, goal: null });
+      showSnackbar(err.response?.data?.error || 'Failed to delete goal.', 'error');
+    }
   };
 
   if (loading) return <PageSkeleton />;
@@ -103,14 +118,29 @@ export default function GoalsPage() {
                           {goal.description || METRIC_LABELS[goal.targetMetric] + ' Reduction'}
                         </Typography>
                         <Typography sx={{ fontSize: 13, color: tokens.colors.textSec }}>
-                          Target: <strong>{goal.targetValue}</strong> kg · Deadline: {goal.deadline}
+                          Target: <strong>{goal.targetValue}</strong> kg CO₂/month · Deadline: {goal.deadline}
                         </Typography>
                       </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <StatusBadge value={goal.status} />
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Chip
+                        label={goal.status}
+                        size="small"
+                        color={
+                          goal.status === 'ACTIVE'    ? 'primary' :
+                          goal.status === 'ACHIEVED'  ? 'success' :
+                          goal.status === 'MISSED'    ? 'error'   : 'default'
+                        }
+                        variant={goal.status === 'ACTIVE' ? 'filled' : 'outlined'}
+                      />
                       {isAdmin() && goal.status === 'ACTIVE' && (
-                        <Button size="small" variant="outlined" color="error" onClick={() => cancel(goal.id)} sx={{ fontSize: 12, minHeight: 28, py: 0 }}>Cancel</Button>
+                        <Button size="small" variant="outlined" onClick={() => cancel(goal.id)}>Cancel</Button>
+                      )}
+                      {isAdmin() && (goal.status === 'MISSED' || goal.status === 'CANCELLED') && (
+                        <Button size="small" variant="outlined" color="error"
+                          onClick={() => setDeleteGoalDialog({ open: true, goal })}>
+                          Delete
+                        </Button>
                       )}
                     </Box>
                   </Box>
@@ -119,7 +149,7 @@ export default function GoalsPage() {
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography sx={{ fontSize: 13, color: tokens.colors.textSec }}>
-                          Current: <Box component="span" sx={{ fontWeight: 600, color: tokens.colors.text }}>{Number(p.currentValue).toFixed(2)} kg CO₂</Box>
+                          Current rate: <Box component="span" sx={{ fontWeight: 600, color: tokens.colors.text }}>{Number(p.currentValue).toFixed(2)} kg CO₂/month</Box>
                         </Typography>
                         <Typography sx={{ fontSize: 13, fontWeight: 600, color: pct >= 50 ? tokens.colors.primary : tokens.colors.warning }}>
                           {pct.toFixed(1)}% complete
@@ -129,11 +159,13 @@ export default function GoalsPage() {
                         sx={{ height: 8, bgcolor: tokens.colors.surface, '& .MuiLinearProgress-bar': { bgcolor: pct >= 50 ? tokens.colors.primary : tokens.colors.warning } }} />
                       <Box sx={{ display: 'flex', gap: 2, mt: 1.5, flexWrap: 'wrap' }}>
                         {[
-                          { label: `Baseline: ${Number(p.baselineValue).toFixed(2)} kg`, bg: tokens.colors.surface, color: tokens.colors.textSec },
+                          { label: `Baseline rate: ${Number(p.baselineValue).toFixed(2)} kg/month`, bg: tokens.colors.surface, color: tokens.colors.textSec },
                           p.daysRemaining < 0
                             ? { label: `${Math.abs(p.daysRemaining)} days overdue`, bg: '#FEF2F2', color: tokens.colors.danger }
                             : { label: `${p.daysRemaining} days remaining`, bg: '#EFF6FF', color: '#2563EB' },
-                          { label: p.onTrack ? '✓ On track' : '⚠ Behind', bg: p.onTrack ? '#F0FDF4' : '#FFFBEB', color: p.onTrack ? tokens.colors.primary : tokens.colors.warning },
+                          parseFloat(p.progressPercentage) === 0 && p.daysRemaining > 0
+                            ? { label: 'Just started', bg: '#DBEAFE', color: '#1D4ED8' }
+                            : { label: p.onTrack ? '✓ On track' : '⚠ Behind', bg: p.onTrack ? '#F0FDF4' : '#FFFBEB', color: p.onTrack ? tokens.colors.primary : tokens.colors.warning },
                         ].map((badge, i) => (
                           <Box key={i} sx={{ display: 'inline-flex', alignItems: 'center', px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: badge.bg }}>
                             <Typography sx={{ fontSize: 12, fontWeight: 600, color: badge.color }}>{badge.label}</Typography>
@@ -170,6 +202,22 @@ export default function GoalsPage() {
         <DialogActions>
           <Button variant="outlined" onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={save} disabled={saving}>{saving ? 'Creating…' : 'Create Goal'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteGoalDialog.open}
+        onClose={() => setDeleteGoalDialog({ open: false, goal: null })}
+        maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: 'error.main' }}>Delete Goal?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" mb={2}>
+            Delete <strong>{deleteGoalDialog.goal?.description || deleteGoalDialog.goal?.targetMetric}</strong>?
+          </Typography>
+          <Alert severity="info">Associated alerts for this goal will also be removed.</Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteGoalDialog({ open: false, goal: null })}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteGoal}>Delete Goal</Button>
         </DialogActions>
       </Dialog>
 

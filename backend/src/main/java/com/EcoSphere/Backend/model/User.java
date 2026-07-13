@@ -46,6 +46,14 @@ public class User {
 
     private Long organizationId;
 
+    @Builder.Default
+    @Column(name = "is_verified", nullable = false,
+            columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean isVerified = false;
+
+    @Column(name = "verification_token")
+    private String verificationToken;
+
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;

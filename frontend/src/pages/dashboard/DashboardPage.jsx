@@ -22,6 +22,7 @@ import goalsApi       from '../../api/goalsApi';
 import organizationsApi from '../../api/organizationsApi';
 import { useAuth }    from '../../context/AuthContext';
 import { KpiCard }    from '../../components/ui';
+import OnboardingWizard from '../../components/common/OnboardingWizard';
 import StatusBadge    from '../../components/ui/StatusBadge';
 import { DashboardSkeleton } from '../../components/ui/SkeletonLoader';
 import { tokens } from '../../theme/theme';
@@ -275,6 +276,8 @@ export default function DashboardPage() {
       </Box>
 
       {error && <Alert severity="error">{error}</Alert>}
+
+      {isAdmin() && <OnboardingWizard />}
 
       {summary && (
         <>

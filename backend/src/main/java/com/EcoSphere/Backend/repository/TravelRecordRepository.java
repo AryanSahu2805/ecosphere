@@ -13,6 +13,8 @@ public interface TravelRecordRepository extends JpaRepository<TravelRecord, Long
 
     List<TravelRecord> findByDepartmentId(Long departmentId);
 
+    List<TravelRecord> findByDepartmentIdIn(List<Long> departmentIds);
+
     List<TravelRecord> findByUserId(Long userId);
 
     boolean existsByDepartmentId(Long departmentId);

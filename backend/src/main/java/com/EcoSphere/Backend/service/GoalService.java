@@ -12,6 +12,7 @@ import com.EcoSphere.Backend.repository.EnergyRecordRepository;
 import com.EcoSphere.Backend.repository.LocationRepository;
 import com.EcoSphere.Backend.repository.OrganizationRepository;
 import com.EcoSphere.Backend.repository.ServerUsageRecordRepository;
+import com.EcoSphere.Backend.repository.AlertRepository;
 import com.EcoSphere.Backend.repository.SustainabilityGoalRepository;
 import com.EcoSphere.Backend.repository.TravelRecordRepository;
 import com.EcoSphere.Backend.repository.UserRepository;
@@ -29,8 +30,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GoalService {
 
-    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
-
     private final SustainabilityGoalRepository sustainabilityGoalRepository;
     private final OrganizationRepository organizationRepository;
     private final LocationRepository locationRepository;
@@ -40,7 +39,9 @@ public class GoalService {
     private final ServerUsageRecordRepository serverUsageRecordRepository;
     private final UserRepository userRepository;
     private final AlertService alertService;
+    private final AlertRepository alertRepository;
     private final OrganizationService organizationService;
+    private final AnalyticsService analyticsService;
 
     public GoalResponseDTO createGoal(CreateGoalRequestDTO request) {
         if (!organizationRepository.existsById(request.getOrganizationId())) {
@@ -51,17 +52,36 @@ public class GoalService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
 
-        BigDecimal baselineValue = getCurrentEmissions(
+        LocalDate today = LocalDate.now();
+        LocalDate threeMonthsAgo = today.minusMonths(3);
+
+        BigDecimal baselineMonthlyRate = analyticsService.getAverageMonthlyEmissions(
+                request.getOrganizationId(),
+                request.getTargetMetric(),
+                threeMonthsAgo,
+                today);
+
+        if (baselineMonthlyRate.compareTo(BigDecimal.ZERO) == 0) {
+            baselineMonthlyRate = analyticsService.getAverageMonthlyEmissions(
+                    request.getOrganizationId(),
+                    request.getTargetMetric(),
+                    today.minusMonths(6),
+                    today);
+        }
+
+        BigDecimal legacyBaseline = getCurrentEmissions(
                 request.getOrganizationId(),
                 request.getTargetMetric(),
                 LocalDate.of(2020, 1, 1),
-                LocalDate.now());
+                today);
 
         SustainabilityGoal goal = SustainabilityGoal.builder()
                 .organizationId(request.getOrganizationId())
                 .targetMetric(request.getTargetMetric())
                 .targetValue(request.getTargetValue())
-                .baselineValue(baselineValue)
+                .baselineValue(legacyBaseline)
+                .baselineMonthlyRate(baselineMonthlyRate)
+                .goalType("RATE_REDUCTION")
                 .deadline(request.getDeadline())
                 .status("ACTIVE")
                 .description(request.getDescription())
@@ -101,72 +121,69 @@ public class GoalService {
         SustainabilityGoal goal = sustainabilityGoalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Goal not found with id: " + id));
 
-        BigDecimal currentValue = getCurrentEmissions(
+        LocalDate today = LocalDate.now();
+        LocalDate threeMonthsAgo = today.minusMonths(3);
+
+        BigDecimal currentMonthlyRate = analyticsService.getAverageMonthlyEmissions(
                 goal.getOrganizationId(),
                 goal.getTargetMetric(),
-                LocalDate.of(2020, 1, 1),
-                LocalDate.now());
+                threeMonthsAgo,
+                today);
 
-        BigDecimal reductionAchieved = goal.getBaselineValue().subtract(currentValue);
-        if (reductionAchieved.compareTo(BigDecimal.ZERO) < 0) {
-            reductionAchieved = BigDecimal.ZERO;
+        BigDecimal baselineRate = goal.getBaselineMonthlyRate();
+        if (baselineRate == null || baselineRate.compareTo(BigDecimal.ZERO) == 0) {
+            baselineRate = goal.getBaselineValue()
+                    .divide(BigDecimal.valueOf(12), 4, RoundingMode.HALF_UP);
         }
 
-        BigDecimal reductionNeeded = currentValue.subtract(goal.getTargetValue());
-        if (reductionNeeded.compareTo(BigDecimal.ZERO) < 0) {
-            reductionNeeded = BigDecimal.ZERO;
-        }
+        BigDecimal targetRate = goal.getTargetValue();
 
-        BigDecimal totalReductionRequired = goal.getBaselineValue().subtract(goal.getTargetValue());
+        BigDecimal totalReductionNeeded = baselineRate.subtract(targetRate);
+        BigDecimal reductionAchieved = baselineRate.subtract(currentMonthlyRate);
 
         BigDecimal progressPercentage;
-        if (totalReductionRequired.compareTo(BigDecimal.ZERO) <= 0) {
-            progressPercentage = HUNDRED.setScale(2, RoundingMode.HALF_UP);
+        if (totalReductionNeeded.compareTo(BigDecimal.ZERO) <= 0) {
+            progressPercentage = new BigDecimal("100");
         } else {
             progressPercentage = reductionAchieved
-                    .multiply(HUNDRED)
-                    .divide(totalReductionRequired, 4, RoundingMode.HALF_UP);
-            progressPercentage = progressPercentage.min(HUNDRED).max(BigDecimal.ZERO);
-            progressPercentage = progressPercentage.setScale(2, RoundingMode.HALF_UP);
+                    .divide(totalReductionNeeded, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .min(new BigDecimal("100"))
+                    .max(new BigDecimal("-999"));
+        }
+        progressPercentage = progressPercentage.setScale(2, RoundingMode.HALF_UP);
+
+        long daysRemaining = ChronoUnit.DAYS.between(today, goal.getDeadline());
+
+        boolean onTrack;
+        if (daysRemaining < 0) {
+            onTrack = currentMonthlyRate.compareTo(targetRate) <= 0;
+        } else {
+            long totalDays = ChronoUnit.DAYS.between(goal.getCreatedAt().toLocalDate(), goal.getDeadline());
+            if (totalDays <= 0) {
+                onTrack = false;
+            } else {
+                double timeElapsedPct = (double) (totalDays - daysRemaining) / totalDays * 100;
+                onTrack = progressPercentage.doubleValue() >= timeElapsedPct;
+            }
         }
 
-        long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), goal.getDeadline());
-
-        boolean achieved = currentValue.compareTo(goal.getTargetValue()) <= 0;
-        boolean missed = daysRemaining < 0 && currentValue.compareTo(goal.getTargetValue()) > 0;
-
         if ("ACTIVE".equals(goal.getStatus())) {
-            if (achieved) {
+            if (currentMonthlyRate.compareTo(targetRate) <= 0) {
                 goal.setStatus("ACHIEVED");
                 sustainabilityGoalRepository.save(goal);
-            } else if (missed) {
+            } else if (daysRemaining < 0) {
                 goal.setStatus("MISSED");
                 sustainabilityGoalRepository.save(goal);
                 alertService.createAlertIfNotExists(
                         goal.getOrganizationId(),
                         goal.getId(),
                         "GOAL_MISSED",
-                        "Goal deadline passed without reaching target. "
-                                + "Current: " + currentValue
-                                + " kg CO2, Target: " + goal.getTargetValue() + " kg CO2.",
+                        "Monthly emission rate ("
+                                + currentMonthlyRate.setScale(2, RoundingMode.HALF_UP)
+                                + " kg/month) exceeds target ("
+                                + targetRate + " kg/month) and deadline passed.",
                         "HIGH");
-            }
-        }
-
-        boolean onTrack;
-        if (daysRemaining <= 0) {
-            onTrack = achieved;
-        } else {
-            long totalDays = ChronoUnit.DAYS.between(goal.getCreatedAt().toLocalDate(), goal.getDeadline());
-            long elapsedDays = ChronoUnit.DAYS.between(goal.getCreatedAt().toLocalDate(), LocalDate.now());
-
-            if (totalDays <= 0) {
-                onTrack = achieved;
-            } else {
-                BigDecimal timeElapsedPct = BigDecimal.valueOf(elapsedDays)
-                        .multiply(HUNDRED)
-                        .divide(BigDecimal.valueOf(totalDays), 4, RoundingMode.HALF_UP);
-                onTrack = progressPercentage.compareTo(timeElapsedPct) >= 0;
             }
         }
 
@@ -174,11 +191,11 @@ public class GoalService {
                 .goalId(goal.getId())
                 .organizationId(goal.getOrganizationId())
                 .targetMetric(goal.getTargetMetric())
-                .targetValue(goal.getTargetValue())
-                .baselineValue(goal.getBaselineValue())
-                .currentValue(currentValue)
+                .targetValue(targetRate)
+                .baselineValue(baselineRate)
+                .currentValue(currentMonthlyRate)
                 .reductionAchieved(reductionAchieved)
-                .reductionNeeded(reductionNeeded)
+                .reductionNeeded(currentMonthlyRate.subtract(targetRate).max(BigDecimal.ZERO))
                 .progressPercentage(progressPercentage)
                 .deadline(goal.getDeadline())
                 .daysRemaining(daysRemaining)
@@ -198,6 +215,25 @@ public class GoalService {
 
         goal.setStatus("CANCELLED");
         sustainabilityGoalRepository.save(goal);
+    }
+
+    public void deleteGoal(Long id) {
+        SustainabilityGoal goal = sustainabilityGoalRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Goal not found: " + id));
+
+        if ("ACTIVE".equals(goal.getStatus())) {
+            throw new DuplicateResourceException(
+                    "Cannot delete an active goal. Cancel it first.");
+        }
+
+        alertRepository.deleteAll(
+                alertRepository.findByOrganizationId(goal.getOrganizationId())
+                        .stream()
+                        .filter(a -> goal.getId().equals(a.getGoalId()))
+                        .toList()
+        );
+
+        sustainabilityGoalRepository.delete(goal);
     }
 
     private BigDecimal getCurrentEmissions(Long organizationId, String metric, LocalDate from, LocalDate to) {

@@ -10,6 +10,7 @@ import LandingPage from './pages/LandingPage';
 import StructurePage from './pages/structure/StructurePage';
 import UsersPage from './pages/users/UsersPage';
 import AcceptInvitePage from './pages/auth/AcceptInvitePage';
+import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -35,6 +36,8 @@ function App() {
                             element={<RegisterPage />} />
                         <Route path="/accept-invite/:token"
                             element={<AcceptInvitePage />} />
+                        <Route path="/verify-email/:token"
+                            element={<VerifyEmailPage />} />
 
                         {/* Protected routes */}
                         <Route path="/app"

@@ -13,4 +13,6 @@ public interface UserInvitationRepository extends JpaRepository<UserInvitation, 
     List<UserInvitation> findByOrganizationId(Long orgId);
 
     boolean existsByInvitedEmailAndAccepted(String email, boolean accepted);
+
+    boolean existsByOrganizationId(Long organizationId);
 }

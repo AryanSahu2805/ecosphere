@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import {
   BusinessOutlined, PersonOutlined, EmailOutlined,
-  LockOutlined, Visibility, VisibilityOff, ShieldOutlined, ArrowBack,
+  LockOutlined, Visibility, VisibilityOff, ShieldOutlined, ArrowBack, CheckCircle,
 } from '@mui/icons-material';
 import authApi from '../../api/authApi';
 import { tokens } from '../../theme/theme';
@@ -49,8 +49,7 @@ export default function RegisterPage() {
         email: form.email,
         password: form.password,
       });
-      setSuccess('Organization created! Your admin account is ready.');
-      setTimeout(() => navigate('/login'), 2000);
+      setSuccess(form.email);
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally { setLoading(false); }
@@ -128,8 +127,25 @@ export default function RegisterPage() {
             Set up your company's workspace and get started.
           </Typography>
 
-          {error   && <Alert severity="error"   sx={{ mb: 2.5 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2.5 }}>{success}</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 2.5 }}>{error}</Alert>}
+          {success && (
+            <>
+              <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2, borderRadius: 2 }}>
+                <Typography variant="body2" fontWeight={700} mb={0.5}>
+                  Organization created successfully!
+                </Typography>
+                <Typography variant="body2">
+                  We sent a verification email to <strong>{success}</strong>. Please check
+                  your inbox and click the link to activate your account before signing in.
+                </Typography>
+              </Alert>
+              <Button variant="contained" fullWidth size="large"
+                onClick={() => navigate('/login')}
+                sx={{ mb: 2.5, bgcolor: tokens.colors.primary, '&:hover': { bgcolor: tokens.colors.primaryDk } }}>
+                Sign In
+              </Button>
+            </>
+          )}
 
           <Box component="form" onSubmit={submit} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Box>
